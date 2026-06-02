@@ -266,7 +266,7 @@ function FavoriteTab() {
         </tr>
       </thead>
       <tbody>
-        {items.map((item, i) => (
+        {items.map((item) => (
           <tr
             key={item.function_code}
             className="fc-row"
@@ -441,7 +441,7 @@ function FrequentTab() {
         </tr>
       </thead>
       <tbody>
-        {sorted.map((item, i) => (
+        {sorted.map((item) => (
           <tr key={item!.function_code} className="fc-row">
             <td>
               <button className="btn btn-ghost px-1 py-0 text-[9px]" onClick={() => removeFrequent(item!.function_code)}>✕</button>

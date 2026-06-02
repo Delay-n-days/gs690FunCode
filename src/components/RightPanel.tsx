@@ -9,7 +9,6 @@ import { useState } from 'react';
 import { useUIStore, useLogStore, useConnectionStore, useReadWriteStore, useFuncodeStore } from '@/store';
 import { useTheme } from '@/hooks/useTheme';
 import type { FuncCodeRuntime } from '@/lib/types';
-import { parseOptions } from '@/lib/utils';
 
 export default function RightPanel() {
   const visible = useUIStore(s => s.rightPanelVisible);

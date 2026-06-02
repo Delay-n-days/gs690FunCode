@@ -10,7 +10,7 @@ import type {
 } from '@/lib/types';
 import {
   ADDR_OFFSET, BATCH_SIZE, MAX_LOG_ENTRIES, MAX_HISTORY_ENTRIES,
-  STORAGE_KEYS, ADDR_TYPE_NAMES,
+  STORAGE_KEYS,
 } from '@/lib/constants';
 import {
   getNumType, loadFromStorage, saveToStorage, formatTimestamp,
@@ -56,7 +56,7 @@ interface FuncodeState {
   setFuncodePending: (code: string, pending: boolean) => void;
 }
 
-export const useFuncodeStore = create<FuncodeState>((set, get) => ({
+export const useFuncodeStore = create<FuncodeState>((set, _get) => ({
   funcodes: loadFromStorage<FuncCode[]>(STORAGE_KEYS.FUNCODES, []).map(withRuntime),
   filterText: '',
   filterGroup: loadFromStorage<string>(STORAGE_KEYS.FILTER_GROUP, ''),
@@ -450,7 +450,7 @@ export const useReadWriteStore = create<ReadWriteState>(() => ({
 
   writeSelected: async () => {
     const { funcodes, selectedRows, selectedAddrType, pendingWrites } = useFuncodeStore.getState();
-    const { connected, busy, setBusy, setStatusMsg, incrementStat } = useConnectionStore.getState();
+    const { setBusy, setStatusMsg, incrementStat } = useConnectionStore.getState();
     const { displayToRaw, isWritable } = await import('@/lib/utils');
 
     const fcs = funcodes.filter(fc => selectedRows.has(fc.function_code) && isWritable(fc));
@@ -478,7 +478,7 @@ export const useReadWriteStore = create<ReadWriteState>(() => ({
 
   batchWrite: async (text) => {
     const { funcodes, selectedAddrType } = useFuncodeStore.getState();
-    const { connected, busy, setBusy, setStatusMsg, incrementStat } = useConnectionStore.getState();
+    const { connected, setBusy, setStatusMsg, incrementStat } = useConnectionStore.getState();
     const { displayToRaw } = await import('@/lib/utils');
 
     if (!connected || !text.trim()) return;

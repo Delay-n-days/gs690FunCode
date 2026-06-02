@@ -6,31 +6,24 @@
 'use client';
 
 import { useMemo } from 'react';
-import {
-  useFuncodeStore, useConnectionStore, useReadWriteStore,
-  useUIStore, useMonitorStore, useFavoriteStore,
-} from '@/store';
+import { useFuncodeStore, useConnectionStore, useReadWriteStore, useUIStore } from '@/store';
 import { ADDR_TYPE_NAMES } from '@/lib/constants';
+import { FuncCodeRuntime } from '@/lib/types';
 import {
   getWrClass, getWrLabel, isWritable, getDisplayValue, getValueClass,
   getDisplayFactoryValue, getDisplayUpperLimit, getDisplayLowerLimit,
   getGroupCount, getGroupPrefix, parseOptions,
 } from '@/lib/utils';
-import type { FuncCodeRuntime, GroupInfo } from '@/lib/types';
-import type { ThemeMode } from '@/hooks/useTheme';
+
 
 interface Props {
   filteredCodes: FuncCodeRuntime[];
-  theme: { themeIcon: string; toggleTheme: () => void; fontLabel: string; toggleFont: () => void; scanlineOn: boolean; toggleScanline: () => void };
 }
 
-export default function FuncCodeTable({ filteredCodes, theme }: Props) {
+export default function FuncCodeTable({ filteredCodes }: Props) {
   const funcodes = useFuncodeStore(s => s.funcodes);
   const filterGroup = useFuncodeStore(s => s.filterGroup);
-  const filterText = useFuncodeStore(s => s.filterText);
-  const selectedAddrType = useFuncodeStore(s => s.selectedAddrType);
   const selectedRows = useFuncodeStore(s => s.selectedRows);
-  const pendingWrites = useFuncodeStore(s => s.pendingWrites);
   const connected = useConnectionStore(s => s.connected);
   const busy = useConnectionStore(s => s.busy);
 
@@ -72,7 +65,6 @@ export default function FuncCodeTable({ filteredCodes, theme }: Props) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* 工具栏 */}
         <Toolbar
-          filteredCodes={filteredCodes}
           connected={connected}
           busy={busy}
         />
@@ -235,8 +227,7 @@ function GroupItem({ name, prefix, count, isActive, onClick }: {
 }
 
 /** 工具栏：搜索框 + 寻址方式选择 + 读取按钮 */
-function Toolbar({ filteredCodes, connected, busy }: {
-  filteredCodes: FuncCodeRuntime[];
+function Toolbar({ connected, busy }: {
   connected: boolean;
   busy: boolean;
 }) {

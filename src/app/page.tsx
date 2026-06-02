@@ -8,10 +8,7 @@
 import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { Toaster } from 'sonner';
 import { useTheme } from '@/hooks/useTheme';
-import {
-  useFuncodeStore, useConnectionStore, useReadWriteStore,
-  useUIStore, useMonitorStore, useFavoriteStore,
-} from '@/store';
+import { useFuncodeStore, useConnectionStore, useUIStore } from '@/store';
 import Header from '@/components/Header';
 import FuncCodeTable from '@/components/FuncCodeTable';
 import RightPanel from '@/components/RightPanel';
@@ -20,8 +17,7 @@ import ConnectDialog from '@/components/ConnectDialog';
 import ContextMenu from '@/components/ContextMenu';
 import OptionPopover from '@/components/OptionPopover';
 import StatusBar from '@/components/StatusBar';
-import { ADDR_TYPE_NAMES } from '@/lib/constants';
-import { parseOptions } from '@/lib/utils';
+
 
 export default function HomePage() {
   const theme = useTheme();
@@ -31,8 +27,6 @@ export default function HomePage() {
   const filterGroup = useFuncodeStore(s => s.filterGroup);
   const funcodes = useFuncodeStore(s => s.funcodes);
   const filterText = useFuncodeStore(s => s.filterText);
-  const selectedAddrType = useFuncodeStore(s => s.selectedAddrType);
-  const connected = useConnectionStore(s => s.connected);
   const mainFlex = useUIStore(s => s.mainFlex);
   const contextMenu = useUIStore(s => s.contextMenu);
   const popover = useUIStore(s => s.popover);
@@ -154,10 +148,7 @@ export default function HomePage() {
           style={{ flex: `0 0 ${mainFlex}%` }}
         >
           {/* 功能码表格（含分组侧边栏） */}
-          <FuncCodeTable
-            filteredCodes={filteredCodes}
-            theme={theme}
-          />
+          <FuncCodeTable filteredCodes={filteredCodes} />
 
           {/* 右侧抽屉面板 */}
           <RightPanel />

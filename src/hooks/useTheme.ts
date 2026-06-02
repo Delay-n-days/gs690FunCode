@@ -1,6 +1,9 @@
 /**
  * 主题管理 Hook
  * 支持深色/亮色主题切换，CRT 扫描线效果，字体切换
+ *
+ * 使用 lazy initializer 从 localStorage 初始化状态，
+ * 避免在 useEffect 中同步调用 setState。
  */
 
 'use client';
@@ -11,32 +14,39 @@ import { STORAGE_KEYS, FONT_CONFIG, FONT_LABELS } from '@/lib/constants';
 export type ThemeMode = 'dark' | 'light';
 export type FontMode = keyof typeof FONT_CONFIG;
 
+/** 从 localStorage 安全读取初始值（SSR 时 localStorage 不可用） */
+function readTheme(): ThemeMode {
+  if (typeof window === 'undefined') return 'dark';
+  return (localStorage.getItem(STORAGE_KEYS.THEME) || 'dark') as ThemeMode;
+}
+
+function readFont(): FontMode {
+  if (typeof window === 'undefined') return 'mono';
+  return (localStorage.getItem(STORAGE_KEYS.FONT) || 'mono') as FontMode;
+}
+
+function readScanline(): boolean {
+  if (typeof window === 'undefined') return true;
+  return localStorage.getItem(STORAGE_KEYS.SCANLINE) !== 'off';
+}
+
 export function useTheme() {
-  const [theme, setTheme] = useState<ThemeMode>('dark');
-  const [fontMode, setFontMode] = useState<FontMode>('mono');
-  const [scanlineOn, setScanlineOn] = useState(true);
+  // 用 lazy initializer 直接从 localStorage 初始化，effect 里不再需要 setState
+  const [theme, setTheme] = useState<ThemeMode>(readTheme);
+  const [fontMode, setFontMode] = useState<FontMode>(readFont);
+  const [scanlineOn, setScanlineOn] = useState<boolean>(readScanline);
 
-  // 初始化：从 localStorage 读取偏好
+  // 初始化：只做 DOM 副作用，不调 setState
   useEffect(() => {
-    const savedTheme = (localStorage.getItem(STORAGE_KEYS.THEME) || 'dark') as ThemeMode;
-    const savedFont = (localStorage.getItem(STORAGE_KEYS.FONT) || 'mono') as FontMode;
-    const savedScanline = localStorage.getItem(STORAGE_KEYS.SCANLINE);
+    document.documentElement.classList.toggle('theme-light', theme === 'light');
+    document.documentElement.classList.toggle('scanline-off', !scanlineOn);
 
-    setTheme(savedTheme);
-    setFontMode(savedFont);
-    setScanlineOn(savedScanline !== 'off');
-
-    // 应用主题 class
-    document.documentElement.classList.toggle('theme-light', savedTheme === 'light');
-    document.documentElement.classList.toggle('scanline-off', savedScanline === 'off');
-
-    // 应用字体
-    const css = FONT_CONFIG[savedFont];
+    const css = FONT_CONFIG[fontMode];
     if (css) {
       document.documentElement.style.setProperty('--mono', css.mono);
       document.documentElement.style.setProperty('--sans', css.sans);
     }
-  }, []);
+  }, [theme, fontMode, scanlineOn]);
 
   /** 切换深色/亮色主题 */
   const toggleTheme = useCallback(() => {

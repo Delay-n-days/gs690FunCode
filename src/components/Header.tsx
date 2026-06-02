@@ -6,9 +6,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { useConnectionStore, useFuncodeStore, useReadWriteStore, useUIStore } from '@/store';
-import type { ThemeMode } from '@/hooks/useTheme';
-import { ADDR_TYPE_NAMES } from '@/lib/constants';
+import { useConnectionStore, useFuncodeStore, useUIStore } from '@/store';
 import { importExcel } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -64,7 +62,7 @@ export default function Header({ theme }: HeaderProps) {
       // 验证数据结构
       const requiredFields = ['function_code', 'address_str', 'group'];
       const isValid = data.every(item =>
-        requiredFields.every(field => item.hasOwnProperty(field))
+        requiredFields.every(field => field in item)
       );
       if (!isValid) throw new Error('数据缺少必要字段 (function_code, address_str, group)');
 
