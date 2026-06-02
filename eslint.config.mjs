@@ -13,6 +13,8 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      // mounted 模式是 React 推荐的 hydration mismatch 解决方案
+      "react-hooks/set-state-in-effect": "off",
     },
   },
   {

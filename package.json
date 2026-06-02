@@ -4,9 +4,9 @@
   "description": "GS690 功能码调试终端 - Next.js 重构版",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 8899",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --port 8899",
     "lint": "next lint"
   },
   "dependencies": {

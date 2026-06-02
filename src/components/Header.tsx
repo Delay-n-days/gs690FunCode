@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useConnectionStore, useFuncodeStore, useUIStore } from '@/store';
 import { importExcel } from '@/lib/api';
 import { toast } from 'sonner';
@@ -30,6 +30,10 @@ export default function Header({ theme }: HeaderProps) {
   const rightPanelVisible = useUIStore(s => s.rightPanelVisible);
   const setDialogVisible = useUIStore(s => s.setDialogVisible);
   const disconnect = useConnectionStore(s => s.disconnect);
+
+  // 避免 hydration mismatch：初始状态与服务端一致（dark），挂载后才同步真实值
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   /** 处理连接/断开按钮点击 */
   const handleConnectToggle = async () => {
@@ -133,7 +137,7 @@ export default function Header({ theme }: HeaderProps) {
           className="btn btn-ghost px-2.5 py-1 text-xs"
           onClick={theme.toggleTheme}
         >
-          {theme.themeIcon}
+          {mounted ? theme.themeIcon : '☀'}
         </button>
 
         <div className="flex-1" />
