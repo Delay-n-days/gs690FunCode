@@ -14,7 +14,7 @@ import { ADDR_TYPE_NAMES } from '@/lib/constants';
 import {
   getWrClass, getWrLabel, isWritable, getDisplayValue, getValueClass,
   getDisplayFactoryValue, getDisplayUpperLimit, getDisplayLowerLimit,
-  getGroupCount, getGroupPrefix,
+  getGroupCount, getGroupPrefix, parseOptions,
 } from '@/lib/utils';
 import type { FuncCodeRuntime, GroupInfo } from '@/lib/types';
 import type { ThemeMode } from '@/hooks/useTheme';

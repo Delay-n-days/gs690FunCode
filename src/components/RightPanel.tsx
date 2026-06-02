@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useUIStore, useLogStore, useConnectionStore, useReadWriteStore, useFuncodeStore } from '@/store';
 import { useTheme } from '@/hooks/useTheme';
+import type { FuncCodeRuntime } from '@/lib/types';
 import { parseOptions } from '@/lib/utils';
 
 export default function RightPanel() {
@@ -162,8 +163,8 @@ function BatchPanel() {
   const exportValues = async () => {
     const funcodes = useFuncodeStore.getState().funcodes;
     const { getDisplayValue } = await import('@/lib/utils');
-    const rows = funcodes.filter((fc: { _value: number | null }) => fc._value !== null);
-    const csv = ['功能码,地址,注释,当前值,单位', ...rows.map((fc: { function_code: string; address_str: string; comment: string; unit: string }) =>
+    const rows = funcodes.filter((fc) => fc._value !== null);
+    const csv = ['功能码,地址,注释,当前值,单位', ...rows.map((fc: FuncCodeRuntime) =>
       `${fc.function_code},${fc.address_str},${fc.comment},${getDisplayValue(fc)},${fc.unit}`
     )].join('\n');
     const a = document.createElement('a');
