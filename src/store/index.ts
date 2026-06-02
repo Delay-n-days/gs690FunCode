@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type {
   FuncCode, FuncCodeRuntime, LogEntry, ModifyHistoryItem,
   ContextMenuState, PopoverState, SerialPort,
@@ -231,8 +232,6 @@ interface ReadWriteState {
   writeSingle: (fc: FuncCodeRuntime) => Promise<void>;
   /** 批量写入选中的功能码 */
   writeSelected: () => Promise<void>;
-  /** 批量文本写入 */
-  batchWrite: (text: string) => Promise<void>;
   /** 自动读取当前分组 */
   autoReadGroup: () => Promise<void>;
 }
@@ -440,7 +439,6 @@ export const useReadWriteStore = create<ReadWriteState>(() => ({
       await writeToBackend([fc], [raw], selectedAddrType, addLog, incrementStat);
       useFuncodeStore.getState().clearPendingWrite(fc.function_code);
       useHistoryStore.getState().addItem(fc, oldValue, valStr);
-      useFrequentStore.getState().increment(fc.function_code);
       toast.success(`${fc.function_code} 写入成功`);
     } finally {
       setBusy(false);
@@ -473,52 +471,6 @@ export const useReadWriteStore = create<ReadWriteState>(() => ({
     } finally {
       setBusy(false);
       setStatusMsg(`批量写入完成`);
-    }
-  },
-
-  batchWrite: async (text) => {
-    const { funcodes, selectedAddrType } = useFuncodeStore.getState();
-    const { connected, setBusy, setStatusMsg, incrementStat } = useConnectionStore.getState();
-    const { displayToRaw } = await import('@/lib/utils');
-
-    if (!connected || !text.trim()) return;
-
-    const lines = text.trim().split('\n');
-    const writeItems: Array<{ fc: FuncCodeRuntime; raw: number }> = [];
-
-    for (const line of lines) {
-      const parts = line.split(',');
-      if (parts.length < 2) continue;
-      const code = parts[0].trim();
-      const valStr = parts[1].trim();
-      const fc = funcodes.find(f => f.function_code === code);
-      if (!fc) { addLog('err', `✗ 未知功能码: ${code}`); continue; }
-      try {
-        writeItems.push({ fc, raw: displayToRaw(fc, valStr) });
-      } catch (e: unknown) {
-        addLog('err', `✗ ${code} 值无效: ${e instanceof Error ? e.message : '未知错误'}`);
-      }
-    }
-
-    if (!writeItems.length) {
-      toast.warning('无有效写入条目');
-      return;
-    }
-
-    setBusy(true);
-    setStatusMsg(`批量写入 ${writeItems.length} 项...`);
-    try {
-      await writeToBackend(
-        writeItems.map(x => x.fc),
-        writeItems.map(x => x.raw),
-        selectedAddrType,
-        addLog,
-        incrementStat,
-      );
-      toast.success(`批量写入完成 · ${writeItems.length} 项`);
-    } finally {
-      setBusy(false);
-      setStatusMsg(`批量写入完成 · ${writeItems.length} 项`);
     }
   },
 
@@ -627,7 +579,6 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
     const newItems = [...items, { ...fc, _value: null, _pending: false, _error: false }];
     set({ items: newItems });
     saveToStorage(STORAGE_KEYS.WATCH_ITEMS, newItems);
-    useFrequentStore.getState().increment(fc.function_code);
     toast.success(`已添加 ${fc.function_code} 到监视窗口`);
   },
 
@@ -701,8 +652,8 @@ interface HistoryState {
   clearHistory: () => void;
 }
 
-export const useHistoryStore = create<HistoryState>((set) => ({
-  items: loadFromStorage<ModifyHistoryItem[]>(STORAGE_KEYS.MODIFY_HISTORY, []),
+export const useHistoryStore = create<HistoryState>()(persist((set) => ({
+  items: [],
 
   addItem: (fc, oldValue, newValue) => set((s) => {
     const items = [{
@@ -712,76 +663,21 @@ export const useHistoryStore = create<HistoryState>((set) => ({
       newValue,
       time: formatTimestamp(),
     }, ...s.items].slice(0, MAX_HISTORY_ENTRIES);
-    saveToStorage(STORAGE_KEYS.MODIFY_HISTORY, items);
     return { items };
   }),
 
   removeItem: (index) => set((s) => {
     const items = [...s.items];
     items.splice(index, 1);
-    saveToStorage(STORAGE_KEYS.MODIFY_HISTORY, items);
     return { items };
   }),
 
   clearHistory: () => {
-    saveToStorage(STORAGE_KEYS.MODIFY_HISTORY, []);
     set({ items: [] });
   },
-}));
-
-// ==================== 常用功能码 Store ====================
-interface FrequentState {
-  stats: Record<string, number>;
-  increment: (code: string) => void;
-  remove: (code: string) => void;
-}
-
-export const useFrequentStore = create<FrequentState>((set) => ({
-  stats: loadFromStorage<Record<string, number>>(STORAGE_KEYS.FREQUENT_STATS, {}),
-
-  increment: (code) => set((s) => {
-    const stats = { ...s.stats, [code]: (s.stats[code] || 0) + 1 };
-    saveToStorage(STORAGE_KEYS.FREQUENT_STATS, stats);
-    return { stats };
-  }),
-
-  remove: (code) => set((s) => {
-    const stats = { ...s.stats };
-    delete stats[code];
-    saveToStorage(STORAGE_KEYS.FREQUENT_STATS, stats);
-    return { stats };
-  }),
-}));
-
-// ==================== 收藏 Store ====================
-interface FavoriteState {
-  codes: string[];
-  add: (code: string) => void;
-  remove: (code: string) => void;
-  isFavorited: (code: string) => boolean;
-}
-
-export const useFavoriteStore = create<FavoriteState>((set, get) => ({
-  codes: loadFromStorage<string[]>(STORAGE_KEYS.FAVORITES, []),
-
-  add: (code) => {
-    if (get().codes.includes(code)) {
-      toast.info(`${code} 已收藏`);
-      return;
-    }
-    const codes = [...get().codes, code];
-    set({ codes });
-    saveToStorage(STORAGE_KEYS.FAVORITES, codes);
-    toast.success(`已收藏 ${code}`);
-  },
-
-  remove: (code) => {
-    const codes = get().codes.filter(c => c !== code);
-    set({ codes });
-    saveToStorage(STORAGE_KEYS.FAVORITES, codes);
-  },
-
-  isFavorited: (code) => get().codes.includes(code),
+}), {
+  name: 'gs690_history',
+  partialize: (s) => ({ items: s.items }),
 }));
 
 // ==================== UI 状态 Store ====================

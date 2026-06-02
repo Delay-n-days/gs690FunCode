@@ -113,6 +113,4 @@ export const STORAGE_KEYS = {
   SERIAL_PREFS: 'gs690_serial_prefs',
   WATCH_ITEMS: 'gs690_watch_items',
   MODIFY_HISTORY: 'gs690_modify_history',
-  FAVORITES: 'gs690_favorites',
-  FREQUENT_STATS: 'gs690_frequent_stats',
 } as const;

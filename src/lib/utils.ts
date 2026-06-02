@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import dayjs from "dayjs"
 import type { FuncCode, OptionItem } from "./types"
 import { NumberType } from "./constants"
 
@@ -72,9 +73,8 @@ export const getDisplayValue = (fc: { _value: number | null; _pending: boolean; 
 export const getValueClass = (fc: { _value: number | null; _pending: boolean; _error: boolean }) =>
   fc._pending ? 'val-pending' : fc._error ? 'val-error' : fc._value === null ? 'val-empty' : ''
 
-/** 时间格式化 */
-export const formatTimestamp = (d = new Date()) =>
-  `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}.${String(d.getMilliseconds()).padStart(3,'0')}`
+/** 时间格式化（使用 dayjs） */
+export const formatTimestamp = (d?: Date) => dayjs(d).format('HH:mm:ss.SSS')
 
 /** localStorage 工具 */
 export const loadFromStorage = <T>(key: string, def: T): T => {
