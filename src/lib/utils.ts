@@ -1,226 +1,91 @@
-/**
- * GS690 功能码显示/转换工具函数
- * 处理原始值 ↔ 显示值的双向转换、范围检查等
- */
+import { type ClassValue, clsx } from "clsx"
+import { twMerge } from "tailwind-merge"
+import type { FuncCode, OptionItem } from "./types"
+import { NumberType } from "./constants"
 
-import type { FuncCode, OptionItem } from './types';
-import { NumberType } from './constants';
+/** shadcn/ui 工具函数 */
+export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)) }
 
-/**
- * 根据数据宽度判断数据类型
- * @param fc 功能码数据
- * @returns NumberType 枚举值
- */
+/** 数据类型判断 */
 export function getNumType(fc: FuncCode): number {
-  const w = parseInt(fc.data_width) || 4;
-  return w <= 4 ? NumberType.BIT16 : NumberType.BIT32;
+  return (parseInt(fc.data_width) || 4) <= 4 ? NumberType.BIT16 : NumberType.BIT32
 }
 
-/**
- * 原始值 → 显示值（物理量）
- * 根据显示格式决定是十六进制还是十进制，并应用精度系数
- */
+/** 原始值 → 显示值 */
 export function rawToDisplay(fc: FuncCode, rawVal: number): string {
-  const showHex = fc.display_format_u16 === '1';
-  const factor = parseFloat(fc.factor) || 1;
-  const signed = fc.whether_signed === '1';
-
-  // 十六进制模式：直接转大写 hex
-  if (showHex) return rawVal.toString(16).toUpperCase().padStart(4, '0');
-
-  let v = rawVal;
-  // 有符号处理：16位有符号数补码转换
-  if (signed) v = v > 32767 ? v - 65536 : v;
-  // 应用精度系数
-  v = v * factor;
-  // 根据系数决定小数位数
-  const decimals = factor === 1 ? 0 : factor === 0.1 ? 1 : factor === 0.01 ? 2 : factor === 0.001 ? 3 : 4;
-  return v.toFixed(decimals);
+  if (fc.display_format_u16 === '1') return rawVal.toString(16).toUpperCase().padStart(4, '0')
+  const factor = parseFloat(fc.factor) || 1
+  let v = fc.whether_signed === '1' && rawVal > 32767 ? rawVal - 65536 : rawVal
+  v *= factor
+  const d = factor === 1 ? 0 : factor === 0.1 ? 1 : factor === 0.01 ? 2 : factor === 0.001 ? 3 : 4
+  return v.toFixed(d)
 }
 
-/**
- * 显示值（物理量）→ 原始值（数据量）
- * 用户输入的显示值转换为设备可接受的原始整数值
- */
-export function displayToRaw(fc: FuncCode, displayStr: string): number {
-  const showHex = fc.display_format_u16 === '1';
-  const factor = parseFloat(fc.factor) || 1;
-  const signed = fc.whether_signed === '1';
-  let v: number;
-
-  if (showHex) {
-    // 十六进制输入解析
-    v = parseInt(displayStr, 16);
-    if (isNaN(v)) throw new Error('无效十六进制');
-    if (v < 0 || v > 65535) throw new Error('超出范围 0~FFFF');
+/** 显示值 → 原始值 */
+export function displayToRaw(fc: FuncCode, s: string): number {
+  const factor = parseFloat(fc.factor) || 1
+  const signed = fc.whether_signed === '1'
+  let v: number
+  if (fc.display_format_u16 === '1') {
+    v = parseInt(s, 16)
+    if (isNaN(v) || v < 0 || v > 65535) throw new Error('无效十六进制')
   } else {
-    // 十进制输入解析
-    v = parseFloat(displayStr);
-    if (isNaN(v)) throw new Error('无效数值');
-    // 除以精度系数得到原始值
-    v = Math.round(v / factor);
-    if (signed) {
-      if (v < -32768 || v > 32767) throw new Error('超出范围 -32768~32767');
-      if (v < 0) v = v + 65536; // 负数转补码
-    } else {
-      if (v < 0 || v > 65535) throw new Error('超出范围 0~65535');
-    }
+    v = Math.round(parseFloat(s) / factor)
+    if (isNaN(v)) throw new Error('无效数值')
+    if (signed) { if (v < -32768 || v > 32767) throw new Error('超出范围'); if (v < 0) v += 65536 }
+    else { if (v < 0 || v > 65535) throw new Error('超出范围') }
   }
-  return v >>> 0; // 无符号整数
+  return v >>> 0
 }
 
-/** 获取显示用的上限值（原始值 × 系数） */
-export function getDisplayUpperLimit(fc: FuncCode): string {
-  if (fc.display_format_u16 === '1') return fc.upper_limit;
-  return (parseFloat(fc.upper_limit) * (parseFloat(fc.factor) || 1)).toString();
+/** 显示值上限/下限/出厂值 */
+/** 获取显示值（字符串形式） */
+const displayVal = (fc: FuncCode, key: 'upper_limit' | 'lower_limit' | 'factory_value'): string => {
+  if (fc.display_format_u16 === '1') return fc[key]
+  return (parseFloat(fc[key]) * (parseFloat(fc.factor) || 1)).toString()
+}
+/** 获取显示值（数值形式） */
+const displayNum = (fc: FuncCode, key: 'upper_limit' | 'lower_limit'): number => {
+  if (fc.display_format_u16 === '1') return parseInt(fc[key], 16)
+  return parseFloat(fc[key]) * (parseFloat(fc.factor) || 1)
+}
+export const getDisplayUpperLimit = (fc: FuncCode) => displayVal(fc, 'upper_limit')
+export const getDisplayLowerLimit = (fc: FuncCode) => displayVal(fc, 'lower_limit')
+export const getDisplayUpperLimitNum = (fc: FuncCode) => displayNum(fc, 'upper_limit')
+export const getDisplayLowerLimitNum = (fc: FuncCode) => displayNum(fc, 'lower_limit')
+export const getDisplayFactoryValue = (fc: FuncCode) => displayVal(fc, 'factory_value')
+
+/** 解析选项字符串 */
+export function parseOptions(s: string): OptionItem[] {
+  if (!s) return []
+  return s.split('\n').map(l => { const m = l.match(/^(\d+)[：:]\s*(.+)/); return m ? { value: m[1], label: m[2] } : null }).filter(Boolean) as OptionItem[]
 }
 
-/** 获取显示用的下限值（原始值 × 系数） */
-export function getDisplayLowerLimit(fc: FuncCode): string {
-  if (fc.display_format_u16 === '1') return fc.lower_limit;
-  return (parseFloat(fc.lower_limit) * (parseFloat(fc.factor) || 1)).toString();
+/** 读写属性工具 */
+export const getWrClass = (a: string) => a === '△' ? 'wr-rw' : a === '×' ? 'wr-rws' : 'wr-r'
+export const getWrLabel = (a: string) => a === '△' ? 'R/W' : a === '×' ? 'R/w' : 'R'
+export const isWritable = (fc: FuncCode) => fc.wr_attribute === '△' || fc.wr_attribute === '×'
+
+/** 显示值 + CSS class */
+export const getDisplayValue = (fc: { _value: number | null; _pending: boolean; _error: boolean } & FuncCode) =>
+  fc._pending ? '...' : fc._error ? 'ERR' : fc._value === null ? '—' : rawToDisplay(fc, fc._value)
+export const getValueClass = (fc: { _value: number | null; _pending: boolean; _error: boolean }) =>
+  fc._pending ? 'val-pending' : fc._error ? 'val-error' : fc._value === null ? 'val-empty' : ''
+
+/** 时间格式化 */
+export const formatTimestamp = (d = new Date()) =>
+  `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}.${String(d.getMilliseconds()).padStart(3,'0')}`
+
+/** localStorage 工具 */
+export const loadFromStorage = <T>(key: string, def: T): T => {
+  if (typeof window === 'undefined') return def
+  try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : def } catch { return def }
+}
+export const saveToStorage = (key: string, v: unknown) => {
+  if (typeof window === 'undefined') return
+  try { localStorage.setItem(key, JSON.stringify(v)) } catch { /* localStorage 满或不可用 */ }
 }
 
-/** 获取数值型的显示上限（用于范围检查） */
-export function getDisplayUpperLimitNum(fc: FuncCode): number {
-  if (fc.display_format_u16 === '1') return parseInt(fc.upper_limit, 16);
-  return parseFloat(fc.upper_limit) * (parseFloat(fc.factor) || 1);
-}
-
-/** 获取数值型的显示下限（用于范围检查） */
-export function getDisplayLowerLimitNum(fc: FuncCode): number {
-  if (fc.display_format_u16 === '1') return parseInt(fc.lower_limit, 16);
-  return parseFloat(fc.lower_limit) * (parseFloat(fc.factor) || 1);
-}
-
-/** 获取显示用的出厂值（原始值 × 系数） */
-export function getDisplayFactoryValue(fc: FuncCode): string {
-  if (fc.display_format_u16 === '1') return fc.factory_value;
-  return (parseFloat(fc.factory_value) * (parseFloat(fc.factor) || 1)).toString();
-}
-
-/**
- * 解析功能码选项字符串
- * 格式：每行 "数字：说明" 或 "数字:说明"
- * @returns 选项数组
- */
-export function parseOptions(optionStr: string): OptionItem[] {
-  if (!optionStr) return [];
-  return optionStr
-    .split('\n')
-    .map(line => {
-      const match = line.match(/^(\d+)[：:]\s*(.+)/);
-      return match ? { value: match[1], label: match[2] } : null;
-    })
-    .filter(Boolean) as OptionItem[];
-}
-
-/**
- * 根据读写属性返回 CSS class 名
- * △=R/W(绿色), ◎=R(青色), ×=R/w(琥珀色)
- */
-export function getWrClass(attr: string): string {
-  if (attr === '△') return 'wr-rw';
-  if (attr === '◎') return 'wr-r';
-  if (attr === '×') return 'wr-rws';
-  return 'wr-r';
-}
-
-/** 读写属性标签 */
-export function getWrLabel(attr: string): string {
-  if (attr === '△') return 'R/W';
-  if (attr === '◎') return 'R';
-  if (attr === '×') return 'R/w';
-  return 'R';
-}
-
-/** 判断功能码是否可写 */
-export function isWritable(fc: FuncCode): boolean {
-  return fc.wr_attribute === '△' || fc.wr_attribute === '×';
-}
-
-/**
- * 获取功能码的显示值
- * 根据读取状态返回不同的显示文本
- */
-export function getDisplayValue(fc: { _value: number | null; _pending: boolean; _error: boolean } & FuncCode): string {
-  if (fc._pending) return '...';
-  if (fc._error) return 'ERR';
-  if (fc._value === null) return '—';
-  return rawToDisplay(fc, fc._value);
-}
-
-/**
- * 获取值显示的 CSS class
- * 根据读取状态返回不同的颜色 class
- */
-export function getValueClass(fc: { _value: number | null; _pending: boolean; _error: boolean }): string {
-  if (fc._pending) return 'val-pending';
-  if (fc._error) return 'val-error';
-  if (fc._value === null) return 'val-empty';
-  return '';
-}
-
-/**
- * 生成当前时间的格式化字符串
- * 格式：HH:MM:SS.mmm
- */
-export function formatTimestamp(date: Date = new Date()): string {
-  const h = date.getHours().toString().padStart(2, '0');
-  const m = date.getMinutes().toString().padStart(2, '0');
-  const s = date.getSeconds().toString().padStart(2, '0');
-  const ms = date.getMilliseconds().toString().padStart(3, '0');
-  return `${h}:${m}:${s}.${ms}`;
-}
-
-/**
- * 生成简短时间字符串
- * 格式：HH:MM:SS
- */
-export function formatTimeShort(date: Date = new Date()): string {
-  const h = date.getHours().toString().padStart(2, '0');
-  const m = date.getMinutes().toString().padStart(2, '0');
-  const s = date.getSeconds().toString().padStart(2, '0');
-  return `${h}:${m}:${s}`;
-}
-
-/**
- * 从 localStorage 读取 JSON 数据，失败返回默认值
- */
-export function loadFromStorage<T>(key: string, defaultValue: T): T {
-  if (typeof window === 'undefined') return defaultValue;
-  try {
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : defaultValue;
-  } catch {
-    return defaultValue;
-  }
-}
-
-/**
- * 将 JSON 数据保存到 localStorage
- */
-export function saveToStorage(key: string, value: unknown): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // localStorage 满或不可用时静默失败
-  }
-}
-
-/**
- * 获取指定分组的功能码数量
- */
-export function getGroupCount(group: string, funcodes: FuncCode[]): number {
-  return funcodes.filter(fc => fc.group === group).length;
-}
-
-/**
- * 获取分组前缀（如 A0、C0）
- */
-export function getGroupPrefix(group: string, funcodes: FuncCode[]): string {
-  const groupFcs = funcodes.filter(fc => fc.group === group);
-  if (groupFcs.length > 0) return groupFcs[0].function_code.split('.')[0];
-  return '??';
-}
+/** 分组统计 */
+export const getGroupCount = (g: string, fcs: FuncCode[]) => fcs.filter(f => f.group === g).length
+export const getGroupPrefix = (g: string, fcs: FuncCode[]) => { const f = fcs.find(x => x.group === g); return f ? f.function_code.split('.')[0] : '??' }

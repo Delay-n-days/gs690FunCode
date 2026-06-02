@@ -1,304 +1,159 @@
-/**
- * RightPanel 组件 — 右侧抽屉面板
- * 包含通信日志、批量操作、设置三个标签页
- */
-
-'use client';
-
-import { useState } from 'react';
-import { useUIStore, useLogStore, useConnectionStore, useReadWriteStore, useFuncodeStore } from '@/store';
-import { useTheme } from '@/hooks/useTheme';
-import type { FuncCodeRuntime } from '@/lib/types';
+"use client"
+/** RightPanel — 右侧抽屉（日志/批量/设置）使用 shadcn Sheet */
+import { useState } from "react"
+import { useUIStore, useLogStore, useConnectionStore, useReadWriteStore, useFuncodeStore } from "@/store"
+import { useTheme } from "@/hooks/useTheme"
+import type { FuncCodeRuntime } from "@/lib/types"
+import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 export default function RightPanel() {
-  const visible = useUIStore(s => s.rightPanelVisible);
-  const rightTab = useUIStore(s => s.rightTab);
-  const setRightTab = useUIStore(s => s.setRightTab);
-  const toggleRightPanel = useUIStore(s => s.toggleRightPanel);
-
+  const visible = useUIStore(s => s.rightPanelVisible)
+  const rightTab = useUIStore(s => s.rightTab)
+  const setRightTab = useUIStore(s => s.setRightTab)
+  const toggleRightPanel = useUIStore(s => s.toggleRightPanel)
   return (
-    <>
-      {/* 遮罩层 */}
-      {visible && (
-        <div
-          className="fixed inset-0 z-40"
-          style={{ background: 'rgba(0,0,0,0.5)' }}
-          onClick={toggleRightPanel}
-        />
-      )}
-
-      {/* 抽屉面板 */}
-      <div
-        className="fixed top-0 right-0 h-full z-50 flex flex-col"
-        style={{
-          width: 360,
-          background: 'var(--bg-panel)',
-          borderLeft: '1px solid var(--border)',
-          transform: visible ? 'translateX(0)' : 'translateX(100%)',
-          transition: 'transform 0.3s ease',
-          boxShadow: '-4px 0 20px rgba(0,0,0,0.5)',
-        }}
-      >
-        {/* 标签栏 */}
-        <div
-          className="flex border-b flex-shrink-0"
-          style={{ borderColor: 'var(--border)', background: 'var(--bg-base)' }}
-        >
-          <TabButton
-            active={rightTab === 'log'}
-            onClick={() => setRightTab('log')}
-            label="通信日志"
-          />
-          <TabButton
-            active={rightTab === 'batch'}
-            onClick={() => setRightTab('batch')}
-            label="批量操作"
-          />
-          <TabButton
-            active={rightTab === 'settings'}
-            onClick={() => setRightTab('settings')}
-            label="设置"
-          />
-          <div className="flex-1" />
-          <button
-            className="btn btn-ghost px-2 py-1 my-1"
-            onClick={toggleRightPanel}
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* 标签内容 */}
-        {rightTab === 'log' && <LogPanel />}
-        {rightTab === 'batch' && <BatchPanel />}
-        {rightTab === 'settings' && <SettingsPanel />}
-      </div>
-    </>
-  );
+    <Sheet open={visible} onOpenChange={toggleRightPanel}>
+      <SheetContent className="w-[360px] p-0 flex flex-col">
+        <Tabs value={rightTab} onValueChange={v => setRightTab(v as typeof rightTab)} className="flex flex-col h-full">
+          <div className="flex border-b border-[var(--border)] bg-[var(--bg-base)] flex-shrink-0">
+            <TabsList className="border-b-0">
+              <TabsTrigger value="log">通信日志</TabsTrigger>
+              <TabsTrigger value="batch">批量操作</TabsTrigger>
+              <TabsTrigger value="settings">设置</TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="log" className="flex-1 overflow-hidden"><LogPanel /></TabsContent>
+          <TabsContent value="batch" className="flex-1 overflow-hidden"><BatchPanel /></TabsContent>
+          <TabsContent value="settings" className="flex-1 overflow-hidden"><SettingsPanel /></TabsContent>
+        </Tabs>
+      </SheetContent>
+    </Sheet>
+  )
 }
 
-/** 标签按钮 */
-function TabButton({ active, onClick, label }: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      className={`tab-btn ${active ? 'active' : ''}`}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  );
-}
-
-/** 通信日志面板 */
 function LogPanel() {
-  const logs = useLogStore(s => s.logs);
-  const autoScroll = useLogStore(s => s.autoScroll);
-  const setAutoScroll = useLogStore(s => s.setAutoScroll);
-  const clearLogs = useLogStore(s => s.clearLogs);
-  const copyLogs = useLogStore(s => s.copyLogs);
-  const exportLogs = useLogStore(s => s.exportLogs);
-
+  const logs = useLogStore(s => s.logs)
+  const autoScroll = useLogStore(s => s.autoScroll)
+  const setAutoScroll = useLogStore(s => s.setAutoScroll)
+  const clearLogs = useLogStore(s => s.clearLogs)
+  const copyLogs = useLogStore(s => s.copyLogs)
+  const exportLogs = useLogStore(s => s.exportLogs)
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* 工具栏 */}
-      <div
-        className="px-2.5 py-1.5 flex gap-1.5 items-center border-b flex-shrink-0"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg-base)' }}
-      >
-        <span className="font-mono text-[10px]" style={{ color: 'var(--text-dim)' }}>
-          {logs.length}/500
-        </span>
+      <div className="px-2.5 py-1.5 flex gap-1.5 items-center border-b border-[var(--border)] bg-[var(--bg-base)] flex-shrink-0">
+        <span className="font-mono text-[10px] text-[var(--text-dim)]">{logs.length}/500</span>
         <div className="flex-1" />
-
-        <label className="flex items-center gap-1 font-mono text-[10px] cursor-pointer" style={{ color: 'var(--text-sec)' }}>
-          <input
-            type="checkbox"
-            checked={autoScroll}
-            onChange={e => setAutoScroll(e.target.checked)}
-            style={{ accentColor: 'var(--amber)' }}
-          />
-          AUTO
+        <label className="flex items-center gap-1 font-mono text-[10px] cursor-pointer text-[var(--text-sec)]">
+          <input type="checkbox" checked={autoScroll} onChange={e => setAutoScroll(e.target.checked)} style={{ accentColor: "var(--amber)" }} /> AUTO
         </label>
-
-        <button className="btn btn-ghost px-2 py-0.5 text-[9px]" onClick={copyLogs}>复制</button>
-        <button className="btn btn-ghost px-2 py-0.5 text-[9px]" onClick={exportLogs}>导出</button>
-        <button className="btn btn-ghost px-2 py-0.5 text-[9px]" onClick={clearLogs}>清空</button>
+        <Button variant="ghost" size="sm" className="text-[9px]" onClick={copyLogs}>复制</Button>
+        <Button variant="ghost" size="sm" className="text-[9px]" onClick={exportLogs}>导出</Button>
+        <Button variant="ghost" size="sm" className="text-[9px]" onClick={clearLogs}>清空</Button>
       </div>
-
-      {/* 日志列表 */}
-      <div className="flex-1 overflow-y-auto px-3 py-2">
-        {logs.map((entry, i) => (
-          <div key={i} className="log-entry">
-            <span className="log-ts">{entry.ts}</span>
-            <span className={`log-${entry.type}`}>{entry.msg}</span>
-          </div>
-        ))}
-        {logs.length === 0 && (
-          <div className="text-center py-8 font-mono text-[11px]" style={{ color: 'var(--text-dim)' }}>
-            — NO LOG ENTRIES —
-          </div>
-        )}
-      </div>
+      <ScrollArea className="flex-1 px-3 py-2">
+        {logs.map((e, i) => <div key={i} className="log-entry"><span className="log-ts">{e.ts}</span><span className={`log-${e.type}`}>{e.msg}</span></div>)}
+        {logs.length === 0 && <div className="text-center py-8 font-mono text-[11px] text-[var(--text-dim)]">— NO LOG ENTRIES —</div>}
+      </ScrollArea>
     </div>
-  );
+  )
 }
 
-/** 批量操作面板 */
 function BatchPanel() {
-  const [batchText, setBatchText] = useState('');
-  const [sampleRate, setSampleRate] = useState('100');
-  const connected = useConnectionStore(s => s.connected);
-  const busy = useConnectionStore(s => s.busy);
-  const selectedRows = useFuncodeStore(s => s.selectedRows);
-  const readSelected = useReadWriteStore(s => s.readSelected);
-  const readAll = useReadWriteStore(s => s.readAll);
-  const batchWrite = useReadWriteStore(s => s.batchWrite);
+  const [batchText, setBatchText] = useState("")
+  const [sampleRate, setSampleRate] = useState("100")
+  const connected = useConnectionStore(s => s.connected)
+  const busy = useConnectionStore(s => s.busy)
+  const selectedRows = useFuncodeStore(s => s.selectedRows)
+  const readSelected = useReadWriteStore(s => s.readSelected)
+  const readAll = useReadWriteStore(s => s.readAll)
+  const batchWrite = useReadWriteStore(s => s.batchWrite)
 
-  /** 导出当前值为 CSV */
   const exportValues = async () => {
-    const funcodes = useFuncodeStore.getState().funcodes;
-    const { getDisplayValue } = await import('@/lib/utils');
-    const rows = funcodes.filter((fc) => fc._value !== null);
-    const csv = ['功能码,地址,注释,当前值,单位', ...rows.map((fc: FuncCodeRuntime) =>
-      `${fc.function_code},${fc.address_str},${fc.comment},${getDisplayValue(fc)},${fc.unit}`
-    )].join('\n');
-    const a = document.createElement('a');
-    a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
-    a.download = `GS690_values_${Date.now()}.csv`;
-    a.click();
-  };
+    const funcodes = useFuncodeStore.getState().funcodes
+    const { getDisplayValue } = await import("@/lib/utils")
+    const rows = funcodes.filter((fc: FuncCodeRuntime) => fc._value !== null)
+    const csv = ["功能码,地址,注释,当前值,单位", ...rows.map((fc: FuncCodeRuntime) => `${fc.function_code},${fc.address_str},${fc.comment},${getDisplayValue(fc)},${fc.unit}`)].join("\n")
+    const a = document.createElement("a")
+    a.href = "data:text/csv;charset=utf-8,\uFEFF" + encodeURIComponent(csv)
+    a.download = `GS690_values_${Date.now()}.csv`
+    a.click()
+  }
 
   return (
-    <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2.5">
-      {/* 批量读取 */}
-      <div className="panel">
-        <div className="panel-title">◈ 批量读取</div>
-        <div className="p-2.5 flex gap-2 items-center flex-wrap">
-          <span className="font-mono text-[11px]" style={{ color: 'var(--text-sec)' }}>
-            已选 {selectedRows.size} 个功能码
-          </span>
-          <button
-            className="btn btn-amber"
-            disabled={!connected || selectedRows.size === 0 || busy}
-            onClick={readSelected}
-          >
-            ▼ 读取选中
-          </button>
-          <button
-            className="btn btn-cyan"
-            disabled={!connected || busy}
-            onClick={readAll}
-          >
-            ⟳ 读取全部
-          </button>
-          <button className="btn btn-ghost" onClick={exportValues}>⬇ 导出当前值</button>
-        </div>
-      </div>
-
-      {/* 批量写入 */}
-      <div className="panel">
-        <div className="panel-title">◈ 批量写入</div>
-        <div className="p-2.5">
-          <div className="font-mono text-[10px] mb-2" style={{ color: 'var(--text-dim)' }}>
-            格式: 功能码,值 (每行一条，如 A0.00,100)
+    <ScrollArea className="flex-1 p-3">
+      <div className="flex flex-col gap-2.5">
+        {/* 批量读取 */}
+        <div className="bg-[var(--bg-panel)] border border-[var(--border)]">
+          <div className="font-mono text-[10px] tracking-[0.15em] text-[var(--amber)] uppercase px-2.5 py-1.5 border-b border-[var(--border)] bg-amber/4">◈ 批量读取</div>
+          <div className="p-2.5 flex gap-2 items-center flex-wrap">
+            <span className="font-mono text-[11px] text-[var(--text-sec)]">已选 {selectedRows.size} 个</span>
+            <Button variant="default" size="sm" disabled={!connected || selectedRows.size === 0 || busy} onClick={readSelected}>▼ 读取选中</Button>
+            <Button variant="cyan" size="sm" disabled={!connected || busy} onClick={readAll}>⟳ 读取全部</Button>
+            <Button variant="ghost" size="sm" onClick={exportValues}>⬇ 导出</Button>
           </div>
-          <textarea
-            className="fc-input w-full h-[120px] resize-y leading-relaxed"
-            value={batchText}
-            onChange={e => setBatchText(e.target.value)}
-            placeholder={`A0.00,0\nA0.01,1\nC0.01,3`}
-          />
-          <div className="mt-2 flex gap-1.5">
-            <button
-              className="btn btn-green"
-              disabled={!connected || busy}
-              onClick={() => batchWrite(batchText)}
-            >
-              ▲ 执行批量写入
-            </button>
-            <button className="btn btn-ghost" onClick={() => setBatchText('')}>清空</button>
+        </div>
+        {/* 批量写入 */}
+        <div className="bg-[var(--bg-panel)] border border-[var(--border)]">
+          <div className="font-mono text-[10px] tracking-[0.15em] text-[var(--amber)] uppercase px-2.5 py-1.5 border-b border-[var(--border)] bg-amber/4">◈ 批量写入</div>
+          <div className="p-2.5">
+            <div className="font-mono text-[10px] mb-2 text-[var(--text-dim)]">格式: 功能码,值 (每行一条)</div>
+            <textarea className="w-full h-[120px] resize-y leading-relaxed bg-[var(--bg-base)] border border-[var(--border-bright)] text-[var(--amber)] font-mono text-[12px] p-2 outline-none" value={batchText} onChange={e => setBatchText(e.target.value)} placeholder={"A0.00,100\nA0.01,1\nC0.01,3"} />
+            <div className="mt-2 flex gap-1.5">
+              <Button variant="green" size="sm" disabled={!connected || busy} onClick={() => batchWrite(batchText)}>▲ 执行批量写入</Button>
+              <Button variant="ghost" size="sm" onClick={() => setBatchText("")}>清空</Button>
+            </div>
+          </div>
+        </div>
+        {/* 示波器 */}
+        <div className="bg-[var(--bg-panel)] border border-[var(--border)]">
+          <div className="font-mono text-[10px] tracking-[0.15em] text-[var(--amber)] uppercase px-2.5 py-1.5 border-b border-[var(--border)] bg-amber/4">◈ 示波器配置</div>
+          <div className="p-2.5 font-mono text-[11px] text-[var(--text-sec)]">
+            <div className="flex gap-2.5 items-center flex-wrap">
+              <span>采样率:</span>
+              <Input className="h-6 w-[80px] font-mono text-[12px]" value={sampleRate} onChange={e => setSampleRate(e.target.value)} placeholder="100" />
+              <span>pts/s</span>
+              <span className="ml-2.5">通道数:</span>
+              <span className="text-[var(--amber)]">{selectedRows.size}</span>
+            </div>
           </div>
         </div>
       </div>
-
-      {/* 示波器配置 */}
-      <div className="panel">
-        <div className="panel-title">◈ 示波器配置</div>
-        <div className="p-2.5 font-mono text-[11px] leading-8" style={{ color: 'var(--text-sec)' }}>
-          <div className="flex gap-2.5 items-center flex-wrap mb-2">
-            <span>采样率:</span>
-            <input
-              className="fc-input"
-              style={{ width: 80 }}
-              value={sampleRate}
-              onChange={e => setSampleRate(e.target.value)}
-              placeholder="100"
-            />
-            <span>pts/s</span>
-            <span className="ml-2.5">通道数:</span>
-            <span style={{ color: 'var(--amber)' }}>{selectedRows.size}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+    </ScrollArea>
+  )
 }
 
-/** 设置面板 */
 function SettingsPanel() {
-  const theme = useTheme();
-
+  const theme = useTheme()
   return (
-    <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-      {/* 外观设置 */}
-      <div className="panel">
-        <div className="panel-title">◈ 外观设置</div>
-        <div className="p-3">
-          {/* 主题 */}
-          <SettingRow label="主题">
-            <button className="btn btn-ghost px-3 py-1" onClick={theme.toggleTheme}>
-              {theme.themeIcon === '☀' ? '深色主题' : '亮色主题'}
-            </button>
-          </SettingRow>
-
-          {/* 字体 */}
-          <SettingRow label="字体">
-            <button className="btn btn-ghost px-3 py-1" onClick={theme.toggleFont}>
-              {theme.fontLabel}
-            </button>
-          </SettingRow>
-
-          {/* CRT 扫描线 */}
-          <SettingRow label="CRT扫描线">
-            <button className="btn btn-ghost px-3 py-1" onClick={theme.toggleScanline}>
-              {theme.scanlineOn ? '开启' : '关闭'}
-            </button>
-          </SettingRow>
+    <ScrollArea className="flex-1 p-3">
+      <div className="flex flex-col gap-3">
+        <div className="bg-[var(--bg-panel)] border border-[var(--border)]">
+          <div className="font-mono text-[10px] tracking-[0.15em] text-[var(--amber)] uppercase px-2.5 py-1.5 border-b border-[var(--border)] bg-amber/4">◈ 外观设置</div>
+          <div className="p-3 flex flex-col gap-3">
+            {[
+              { label: "主题", action: theme.toggleTheme, value: theme.themeIcon === "☀" ? "深色主题" : "亮色主题" },
+              { label: "字体", action: theme.toggleFont, value: theme.fontLabel },
+              { label: "CRT扫描线", action: theme.toggleScanline, value: theme.scanlineOn ? "开启" : "关闭" },
+            ].map(r => (
+              <div key={r.label} className="flex items-center justify-between">
+                <span className="text-xs text-[var(--text-pri)]">{r.label}</span>
+                <Button variant="ghost" size="sm" onClick={r.action}>{r.value}</Button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-[var(--bg-panel)] border border-[var(--border)]">
+          <div className="font-mono text-[10px] tracking-[0.15em] text-[var(--amber)] uppercase px-2.5 py-1.5 border-b border-[var(--border)] bg-amber/4">◈ 关于</div>
+          <div className="p-3 text-[11px] leading-7 text-[var(--text-sec)]">
+            <div>GS690 功能码调试终端</div>
+            <div className="text-[var(--text-dim)]">版本: v3.0.0 (Next.js + shadcn/ui)</div>
+          </div>
         </div>
       </div>
-
-      {/* 关于 */}
-      <div className="panel">
-        <div className="panel-title">◈ 关于</div>
-        <div className="p-3 text-[11px] leading-7" style={{ color: 'var(--text-sec)' }}>
-          <div>GS690 功能码调试终端</div>
-          <div style={{ color: 'var(--text-dim)' }}>版本: v3.0.0 (Next.js)</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** 设置行 */
-function SettingRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between mb-3 last:mb-0">
-      <span className="text-xs" style={{ color: 'var(--text-pri)' }}>{label}</span>
-      {children}
-    </div>
-  );
+    </ScrollArea>
+  )
 }
