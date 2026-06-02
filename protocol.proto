@@ -1,0 +1,162 @@
+syntax = "proto3";
+package gs690_protocol;
+
+option optimize_for = LITE_RUNTIME;
+
+enum ProtocolVersion {
+  PROTOCOL_VERSION_UNKNOWN = 0;
+  PROTOCOL_VERSION_1 = 1;
+  PROTOCOL_VERSION_2 = 2;
+  PROTOCOL_VERSION_3 = 3;
+}
+
+enum StatusCode {
+  STATUS_SUCCESS = 0;
+  STATUS_FAILED = 1;
+  STATUS_TIMEOUT = 2;
+  STATUS_INVALID_ADDRESS = 3;
+  STATUS_INVALID_VALUE = 4;
+  STATUS_PERMISSION_DENIED = 5;
+  STATUS_DEVICE_BUSY = 6;
+  STATUS_UNKNOWN_ERROR = 255;
+}
+
+enum AddrType {
+  ADDR_TYPE_DSP_CODE = 0;
+  ADDR_TYPE_DSP_MEM = 1;
+  ADDR_TYPE_PG_CODE = 2;
+  ADDR_TYPE_PG_MEM = 3;
+  ADDR_TYPE_COMM_CODE = 4;
+  ADDR_TYPE_COMM_MEM = 5;
+}
+
+enum NumberType {
+  NUMBER_TYPE_16_bit = 0;
+  NUMBER_TYPE_32_bit = 1;
+  NUMBER_TYPE_8_bit = 2;
+}
+
+enum CommandType {
+  CMD_UNKNOWN = 0;
+  CMD_READ_REQUEST = 256;
+  CMD_READ_RESPONSE = 33024;
+  CMD_WRITE_REQUEST = 257;
+  CMD_WRITE_RESPONSE = 33025;
+  CMD_CONFIG_SCOPE_REQUEST = 512;
+  CMD_CONFIG_SCOPE_RESPONSE = 33280;
+  CMD_START_PAUSE_REQUEST = 513;
+  CMD_START_PAUSE_RESPONSE = 33281;
+  CMD_DATA_TRANSFER = 33282;
+  CMD_GOTO_BOOT_REQUEST = 768;
+  CMD_GOTO_BOOT_RESPONSE = 33536;
+}
+
+message VariableAddress {
+  AddrType addr_type = 1;
+  uint32 var_address = 2;
+  NumberType number_type = 3;
+}
+
+message ReadRequest {
+  repeated VariableAddress addresses = 1;
+}
+
+message VariableValue {
+  StatusCode status = 1;
+  AddrType addr_type = 2;
+  uint32 var_address = 3;
+  uint32 value = 4;
+  NumberType number_type = 5;
+}
+
+message ReadResponse {
+  repeated VariableValue values = 1;
+}
+
+message WriteVariable {
+  AddrType addr_type = 1;
+  uint32 var_address = 2;
+  uint32 value = 3;
+  NumberType number_type = 4;
+}
+
+message WriteRequest {
+  repeated WriteVariable variables = 1;
+}
+
+message WriteStatus {
+  AddrType addr_type = 1;
+  uint32 var_address = 2;
+  StatusCode status = 3;
+  uint32 current_value = 4;
+  NumberType number_type = 5;
+}
+
+message WriteResponse {
+  repeated WriteStatus statuses = 1;
+}
+
+message ChannelAddress {
+  uint32 channel_number = 1;
+  AddrType addr_type = 2;
+  NumberType number_type = 3;
+  uint32 var_address = 4;
+}
+
+message ConfigScopeRequest {
+  repeated ChannelAddress channels = 1;
+  uint32 len = 2;
+  uint32 count_every_secound = 3;
+}
+
+message ConfigScopeResponse {
+  StatusCode status = 1;
+  uint32 error_code = 2;
+  uint32 count_every_secound = 3;
+}
+
+message StartPauseRequest {
+  uint32 operation = 1;
+}
+
+message StartPauseResponse {
+  StatusCode status = 1;
+  uint32 current_state = 2;
+}
+
+message GotoBootRequest {
+  uint32 reserved = 1;
+}
+
+message GotoBootResponse {
+  StatusCode status = 1;
+}
+
+message DataTransfer {
+  uint32 channel = 1;
+  uint32 sequence = 2;
+  repeated uint32 data = 3;
+  NumberType number_type = 4;
+}
+
+message FramePayload {
+  oneof payload {
+    ReadRequest read_request = 1;
+    ReadResponse read_response = 2;
+    WriteRequest write_request = 3;
+    WriteResponse write_response = 4;
+    ConfigScopeRequest config_scope_request = 5;
+    ConfigScopeResponse config_scope_response = 6;
+    StartPauseRequest start_pause_request = 7;
+    StartPauseResponse start_pause_response = 8;
+    DataTransfer data_transfer = 9;
+    GotoBootRequest goto_boot_request = 10;
+    GotoBootResponse goto_boot_response = 11;
+  }
+}
+
+message Frame {
+  uint32 version = 1;
+  uint32 command = 2;
+  FramePayload payload = 3;
+}

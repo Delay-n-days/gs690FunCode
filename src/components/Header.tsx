@@ -25,7 +25,7 @@ export default function Header({ theme }: { theme: { themeIcon: string; fontLabe
       let data: Array<Record<string, unknown>>
       const name = file.name.toLowerCase()
       if (name.endsWith(".json")) { const t = await file.text(); data = JSON.parse(t); if (!Array.isArray(data)) throw new Error("JSON应为数组") }
-      else if (name.endsWith(".xlsx") || name.endsWith(".xls")) { data = await importExcel(file) }
+      else if (name.endsWith(".xlsx") || name.endsWith(".xls")) { const res = await importExcel(file, ""); data = res.entries as Array<Record<string, unknown>> }
       else throw new Error("不支持的格式，请用 .json 或 .xlsx")
       const ok = data.every(item => ["function_code", "address_str", "group"].every(f => f in item))
       if (!ok) throw new Error("缺少必要字段 (function_code, address_str, group)")

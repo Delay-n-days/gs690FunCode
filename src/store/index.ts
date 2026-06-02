@@ -259,7 +259,7 @@ async function readFromBackend(
     fcs.forEach((fc, i) => {
       if (i < values.length) {
         const v = values[i];
-        if (v.status === 'STATUS_SUCCESS' || v.status === 0) {
+        if (v.status === 0) {
           useFuncodeStore.getState().updateFuncodeValue(fc.function_code, v.value, false);
         } else {
           useFuncodeStore.getState().updateFuncodeValue(fc.function_code, null, true);
@@ -306,7 +306,7 @@ async function writeToBackend(
     fcs.forEach((fc, i) => {
       if (i < statuses.length) {
         const s = statuses[i];
-        if (s.status === 'STATUS_SUCCESS' || s.status === 0) {
+        if (s.status === 0) {
           useFuncodeStore.getState().updateFuncodeValue(fc.function_code, s.current_value, false);
         } else {
           useFuncodeStore.getState().updateFuncodeValue(fc.function_code, null, true);
@@ -613,7 +613,7 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
       const updatedItems = items.map((fc, i) => {
         if (i < values.length) {
           const v = values[i];
-          if (v.status === 'STATUS_SUCCESS' || v.status === 0) {
+          if (v.status === 0) {
             return { ...fc, _value: v.value, _error: false, _pending: false };
           }
           return { ...fc, _error: true, _pending: false };
