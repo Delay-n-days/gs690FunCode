@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { X } from "lucide-react"
 
 export default function BottomPanel() {
   const visible = useUIStore(s => s.monitorPanelVisible)
@@ -75,7 +76,7 @@ function MonitorTab() {
         <TableBody>
           {items.map((item, i) => (
             <TableRow key={item.function_code} className="cursor-pointer" onDoubleClick={() => readSingle(item)}>
-              <TableCell><Button variant="ghost" size="sm" onClick={() => removeFromWatch(i)}>✕</Button></TableCell>
+              <TableCell><Button variant="ghost" size="sm" onClick={() => removeFromWatch(i)}><X className="w-4 h-4" /></Button></TableCell>
               <TableCell className="font-mono text-primary">{item.function_code}</TableCell>
               <TableCell>{item.comment}</TableCell>
               <TableCell><span className={`font-mono ${getValueClass(item)}`}>{getDisplayValue(item)}</span></TableCell>
@@ -107,7 +108,7 @@ function HistoryTab() {
         <TableBody>
           {items.map((item, i) => (
             <TableRow key={i}>
-              <TableCell><Button variant="ghost" size="sm" onClick={() => removeItem(i)}>✕</Button></TableCell>
+              <TableCell><Button variant="ghost" size="sm" onClick={() => removeItem(i)}><X className="w-4 h-4" /></Button></TableCell>
               <TableCell className="font-mono text-primary">{item.function_code}</TableCell>
               <TableCell>{item.comment}</TableCell>
               <TableCell className="font-mono text-destructive">{item.oldValue}</TableCell>

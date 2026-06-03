@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { RefreshCw, ChevronRight } from "lucide-react"
+import { RefreshCw, ChevronRight, ArrowUp, ChevronDown } from "lucide-react"
 
 export default function FuncCodeTable({ filteredCodes }: { filteredCodes: FuncCodeRuntime[] }) {
   const funcodes = useFuncodeStore(s => s.funcodes)
@@ -144,7 +144,7 @@ function FuncCodeRow({ fc }: { fc: FuncCodeRuntime }) {
         {writable && (
           <div className="flex items-center gap-1">
             <Input className="h-7 w-20 font-mono" placeholder={getDisplayFactoryValue(fc)} value={pendingVal} onChange={e => setPendingWrite(fc.function_code, e.target.value)} onKeyDown={e => e.key === "Enter" && writeSingle(fc)} />
-            <Button size="sm" className={pendingVal ? "visible" : "invisible"} disabled={!connected || busy || !pendingVal} onClick={() => writeSingle(fc)}>▲</Button>
+            <Button size="sm" className={pendingVal ? "visible" : "invisible"} disabled={!connected || busy || !pendingVal} onClick={() => writeSingle(fc)}><ArrowUp className="w-4 h-4" /></Button>
           </div>
         )}
       </TableCell>
@@ -160,7 +160,7 @@ function FuncCodeRow({ fc }: { fc: FuncCodeRuntime }) {
               if (left + 320 > window.innerWidth) left = window.innerWidth - 330
               if (left < 0) left = 10
               setPopover({ visible: true, x: left, y: top, funcCode: fc })
-            }}>▼</Button>
+            }}><ChevronDown className="w-4 h-4" /></Button>
           )}
           <span className="text-sm truncate text-muted-foreground w-56" title={fc.function_code_option}>{fc.function_code_option}</span>
         </div>
