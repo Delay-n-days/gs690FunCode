@@ -138,7 +138,7 @@ async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Prom
   logApi('tx', `Tauri IPC invoke('${cmd}') args=${JSON.stringify(args || {}).slice(0, 200)}`);
   try {
     // @ts-expect-error Tauri API
-    const { invoke } = window.__TAURI__.core;
+    const invoke = window.__TAURI_INTERNALS__.invoke;
     const result = await invoke(cmd, args) as T;
     logApi('rx', `Tauri IPC invoke('${cmd}') 成功: ${JSON.stringify(result).slice(0, 200)}`);
     return result;
