@@ -4,9 +4,11 @@ import { useConnectionStore, useFuncodeStore, useUIStore } from "@/store"
 import { importExcel } from "@/lib/api"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
 import { Upload, PanelRightOpen, PanelRightClose, ChevronDown, ChevronUp } from "lucide-react"
 
-export default function Header({ theme }: { theme: { themeIcon: string; fontLabel: string; toggleTheme: () => void; toggleFont: () => void; toggleScanline: () => void; scanlineOn: boolean } }) {
+export default function Header({ theme }: { theme: { themeIcon: string; toggleTheme: () => void } }) {
   const ref = useRef<HTMLInputElement>(null)
   const connected = useConnectionStore(s => s.connected)
   const disconnect = useConnectionStore(s => s.disconnect)
@@ -36,35 +38,33 @@ export default function Header({ theme }: { theme: { themeIcon: string; fontLabe
   }
 
   return (
-    <div className="header-bar px-4 flex items-center gap-4 h-11 flex-shrink-0">
-      <div className="flex items-center gap-2.5">
-        <div className="w-[3px] h-7" style={{ background: "var(--amber)", boxShadow: "0 0 8px var(--amber)" }} />
+    <header className="flex items-center gap-3 h-12 px-4 border-b border-border bg-background">
+      <div className="flex items-center gap-2">
+        <div className="w-1 h-6 bg-primary rounded-full" />
         <div>
-          <div className="font-mono text-[13px] tracking-[0.15em] leading-none" style={{ color: "var(--amber)" }}>GS690 · PARAM TERMINAL</div>
-          <div className="text-[9px] tracking-[0.1em] mt-0.5" style={{ color: "var(--text-dim)" }}>功能码读写调试终端 v3.0</div>
+          <h1 className="text-sm font-semibold leading-none">GS690 PARAM TERMINAL</h1>
+          <p className="text-xs text-muted-foreground">功能码读写调试终端 v3.0</p>
         </div>
       </div>
       <div className="flex-1" />
-      <div className="flex items-center gap-3">
-        <span className={`status-led ${connected ? "led-green pulse-amber" : "led-dim"}`} />
-        <span className="font-mono text-[10px]" style={{ color: "var(--text-sec)" }}>{connected ? "SERIAL OK" : "OFFLINE"}</span>
-        <div className="w-px h-5" style={{ background: "var(--border)" }} />
-        <label className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.08em] px-2.5 py-1 border border-[var(--cyan-dim)] bg-cyan/10 text-[var(--cyan)] cursor-pointer hover:bg-cyan/15 transition-all">
-          <Upload className="w-3 h-3" /> 导入
+      <div className="flex items-center gap-2">
+        <Badge variant={connected ? "default" : "secondary"}>{connected ? "已连接" : "离线"}</Badge>
+        <Separator orientation="vertical" className="h-5" />
+        <label className="inline-flex items-center gap-1.5 cursor-pointer text-sm border border-border rounded-lg px-2.5 h-7 hover:bg-muted">
+          <Upload data-icon="inline-start" /> 导入
           <input ref={ref} type="file" accept=".json,.xlsx,.xls" onChange={handleImport} className="hidden" />
         </label>
         <Button variant="ghost" size="sm" onClick={theme.toggleTheme}>{mounted ? theme.themeIcon : "☀"}</Button>
-        <div className="flex-1" />
         <Button variant="default" size="sm" onClick={() => connected ? disconnect() : setDialogVisible(true)}>
-          {connected ? "⏹ DISCONNECT" : "▶ CONNECT"}
+          {connected ? "断开" : "连接"}
         </Button>
         <Button variant="ghost" size="sm" onClick={toggleMonitorPanel}>
-          {monitorPanelVisible ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />} 监视
+          {monitorPanelVisible ? <ChevronDown data-icon="inline-start" /> : <ChevronUp data-icon="inline-start" />} 监视
         </Button>
         <Button variant="ghost" size="sm" onClick={toggleRightPanel}>
-          {rightPanelVisible ? <PanelRightOpen className="w-3.5 h-3.5" /> : <PanelRightClose className="w-3.5 h-3.5" />}
+          {rightPanelVisible ? <PanelRightClose data-icon="inline-start" /> : <PanelRightOpen data-icon="inline-start" />}
         </Button>
       </div>
-    </div>
+    </header>
   )
 }

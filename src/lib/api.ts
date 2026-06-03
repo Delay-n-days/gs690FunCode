@@ -64,17 +64,21 @@ const READ_TIMEOUT_MS = 3000;
 // HTTP API 实现（Next.js 模式）
 // ============================================================
 
-async function httpGet<T>(endpoint: string): Promise<T> {
-  logApi('tx', `HTTP GET ${endpoint}`);
+/// HTTP API 基础地址（FastAPI 后端）
+const HTTP_API_BASE = 'http://localhost:8080';
+
+async function httpGet<T>(endpoint: string, silent = false): Promise<T> {
+  const url = `${HTTP_API_BASE}${endpoint}`;
+  if (!silent) logApi('tx', `HTTP GET ${url}`);
   try {
-    const res = await fetch(endpoint);
+    const res = await fetch(url);
     if (!res.ok) {
       const err = await res.text().catch(() => `HTTP ${res.status}`);
       logApi('err', `HTTP GET ${endpoint} 失败: ${res.status} ${err}`);
       throw new Error(err || `HTTP ${res.status}`);
     }
     const data = await res.json() as T;
-    logApi('rx', `HTTP GET ${endpoint} 成功`);
+    if (!silent) logApi('rx', `HTTP GET ${endpoint} 成功`);
     return data;
   } catch (e) {
     logApi('err', `HTTP GET ${endpoint} 异常: ${e instanceof Error ? e.message : e}`);
@@ -82,12 +86,13 @@ async function httpGet<T>(endpoint: string): Promise<T> {
   }
 }
 
-async function httpPost<T>(endpoint: string, data?: unknown, timeoutMs = 10000): Promise<T> {
-  logApi('tx', `HTTP POST ${endpoint} data=${JSON.stringify(data || {}).slice(0, 200)}`);
+async function httpPost<T>(endpoint: string, data?: unknown, timeoutMs = 10000, silent = false): Promise<T> {
+  const url = `${HTTP_API_BASE}${endpoint}`;
+  if (!silent) logApi('tx', `HTTP POST ${url} data=${JSON.stringify(data || {}).slice(0, 200)}`);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(endpoint, {
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: data ? JSON.stringify(data) : undefined,
@@ -99,7 +104,7 @@ async function httpPost<T>(endpoint: string, data?: unknown, timeoutMs = 10000):
       throw new Error(err || `HTTP ${res.status}`);
     }
     const result = await res.json() as T;
-    logApi('rx', `HTTP POST ${endpoint} 成功`);
+    if (!silent) logApi('rx', `HTTP POST ${endpoint} 成功`);
     return result;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -111,11 +116,12 @@ async function httpPost<T>(endpoint: string, data?: unknown, timeoutMs = 10000):
 }
 
 async function httpUpload<T>(endpoint: string, file: File): Promise<T> {
-  logApi('tx', `HTTP UPLOAD ${endpoint} file=${file.name} size=${file.size}`);
+  const url = `${HTTP_API_BASE}${endpoint}`;
+  logApi('tx', `HTTP UPLOAD ${url} file=${file.name} size=${file.size}`);
   const formData = new FormData();
   formData.append('file', file);
   try {
-    const res = await fetch(endpoint, { method: 'POST', body: formData });
+    const res = await fetch(url, { method: 'POST', body: formData });
     if (!res.ok) {
       const err = await res.text().catch(() => `HTTP ${res.status}`);
       logApi('err', `HTTP UPLOAD ${endpoint} 失败: ${res.status} ${err}`);
@@ -158,7 +164,7 @@ export async function fetchStatus(): Promise<BackendStatus> {
   if (isTauri()) {
     return tauriInvoke('get_status');
   }
-  return httpGet('/api/status');
+  return httpGet('/api/status', true);
 }
 
 /**
@@ -198,20 +204,18 @@ export async function searchPorts(): Promise<PortInfo[]> {
 
 /** 批量读取参数 */
 export async function readParams(addresses: AddressParam[]): Promise<{ values: Array<{ status: number; addr_type: number; var_address: number; value: number; number_type: number }> }> {
-  logApi('tx', `批量读取 ${addresses.length} 个地址: ${JSON.stringify(addresses).slice(0, 200)}`);
   if (isTauri()) {
     return tauriInvoke('read_params', { addresses });
   }
-  return httpPost('/api/read', { addresses }, READ_TIMEOUT_MS);
+  return httpPost('/api/read', { addresses }, READ_TIMEOUT_MS, true);
 }
 
 /** 批量写入参数 */
 export async function writeParams(variables: WriteParam[]): Promise<{ statuses: Array<{ addr_type: number; var_address: number; status: number; current_value: number; number_type: number }> }> {
-  logApi('tx', `批量写入 ${variables.length} 个变量: ${JSON.stringify(variables).slice(0, 200)}`);
   if (isTauri()) {
     return tauriInvoke('write_params', { variables });
   }
-  return httpPost('/api/write', { variables });
+  return httpPost('/api/write', { variables }, undefined, true);
 }
 
 /** 配置示波器 */

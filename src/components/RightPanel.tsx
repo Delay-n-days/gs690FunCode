@@ -1,11 +1,11 @@
 "use client"
-/** RightPanel — 右侧抽屉（日志/设置）使用 shadcn Sheet */
 import { useUIStore, useLogStore } from "@/store"
 import { useTheme } from "@/hooks/useTheme"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useEffect, useRef } from "react"
 
 export default function RightPanel() {
   const visible = useUIStore(s => s.rightPanelVisible)
@@ -15,15 +15,16 @@ export default function RightPanel() {
   return (
     <Sheet open={visible} onOpenChange={toggleRightPanel}>
       <SheetContent className="w-[360px] p-0 flex flex-col">
+        <SheetHeader className="sr-only"><SheetTitle>右侧面板</SheetTitle></SheetHeader>
         <Tabs value={rightTab} onValueChange={v => setRightTab(v as typeof rightTab)} className="flex flex-col h-full">
-          <div className="flex border-b border-[var(--border)] bg-[var(--bg-base)] flex-shrink-0">
-            <TabsList className="border-b-0">
+          <div className="px-4 border-b border-border">
+            <TabsList className="w-full justify-start">
               <TabsTrigger value="log">通信日志</TabsTrigger>
               <TabsTrigger value="settings">设置</TabsTrigger>
             </TabsList>
           </div>
-          <TabsContent value="log" className="flex-1 overflow-hidden"><LogPanel /></TabsContent>
-          <TabsContent value="settings" className="flex-1 overflow-hidden"><SettingsPanel /></TabsContent>
+          <TabsContent value="log" className="flex-1 min-h-0 flex flex-col overflow-hidden m-0"><LogPanel /></TabsContent>
+          <TabsContent value="settings" className="flex-1 min-h-0 flex flex-col overflow-hidden m-0"><SettingsPanel /></TabsContent>
         </Tabs>
       </SheetContent>
     </Sheet>
@@ -37,22 +38,43 @@ function LogPanel() {
   const clearLogs = useLogStore(s => s.clearLogs)
   const copyLogs = useLogStore(s => s.copyLogs)
   const exportLogs = useLogStore(s => s.exportLogs)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [logs, autoScroll])
+
+  const getLogColor = (type: string) => {
+    switch (type) {
+      case "tx": return "text-primary"
+      case "rx": return "text-green-600"
+      case "err": return "text-destructive"
+      case "info": return "text-blue-600"
+      default: return "text-muted-foreground"
+    }
+  }
+
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="px-2.5 py-1.5 flex gap-1.5 items-center border-b border-[var(--border)] bg-[var(--bg-base)] flex-shrink-0">
-        <span className="font-mono text-[10px] text-[var(--text-dim)]">{logs.length}/500</span>
+    <div className="flex-1 flex flex-col min-h-0">
+      <div className="px-3 py-2 flex items-center gap-2 border-b border-border">
+        <span className="text-sm text-muted-foreground">{logs.length}/500</span>
         <div className="flex-1" />
-        <label className="flex items-center gap-1 font-mono text-[10px] cursor-pointer text-[var(--text-sec)]">
-          <input type="checkbox" checked={autoScroll} onChange={e => setAutoScroll(e.target.checked)} style={{ accentColor: "var(--amber)" }} /> AUTO
+        <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground">
+          <input type="checkbox" checked={autoScroll} onChange={e => setAutoScroll(e.target.checked)} className="accent-primary" /> 自动滚动
         </label>
-        <Button variant="ghost" size="sm" className="text-[9px]" onClick={copyLogs}>复制</Button>
-        <Button variant="ghost" size="sm" className="text-[9px]" onClick={exportLogs}>导出</Button>
-        <Button variant="ghost" size="sm" className="text-[9px]" onClick={clearLogs}>清空</Button>
+        <Button variant="ghost" size="sm" onClick={copyLogs}>复制</Button>
+        <Button variant="ghost" size="sm" onClick={exportLogs}>导出</Button>
+        <Button variant="ghost" size="sm" onClick={clearLogs}>清空</Button>
       </div>
-      <ScrollArea className="flex-1 px-3 py-2">
-        {logs.map((e, i) => <div key={i} className="log-entry"><span className="log-ts">{e.ts}</span><span className={`log-${e.type}`}>{e.msg}</span></div>)}
-        {logs.length === 0 && <div className="text-center py-8 font-mono text-[11px] text-[var(--text-dim)]">— NO LOG ENTRIES —</div>}
-      </ScrollArea>
+      <div ref={scrollRef} className="flex-1 px-3 py-2 h-0 min-h-0 overflow-y-auto font-mono text-sm">
+        {logs.map((e, i) => (
+          <div key={i} className="py-1 border-b border-border/50">
+            <span className="text-muted-foreground mr-2">{e.ts}</span>
+            <span className={getLogColor(e.type)}>{e.msg}</span>
+          </div>
+        ))}
+        {logs.length === 0 && <div className="text-center py-8 text-muted-foreground">暂无日志</div>}
+      </div>
     </div>
   )
 }
@@ -61,27 +83,21 @@ function SettingsPanel() {
   const theme = useTheme()
   return (
     <ScrollArea className="flex-1 p-3">
-      <div className="flex flex-col gap-3">
-        <div className="bg-[var(--bg-panel)] border border-[var(--border)]">
-          <div className="font-mono text-[10px] tracking-[0.15em] text-[var(--amber)] uppercase px-2.5 py-1.5 border-b border-[var(--border)] bg-amber/4">◈ 外观设置</div>
+      <div className="flex flex-col gap-4">
+        <div className="border border-border rounded-lg">
+          <div className="px-3 py-2 border-b border-border bg-muted font-medium">外观设置</div>
           <div className="p-3 flex flex-col gap-3">
-            {[
-              { label: "主题", action: theme.toggleTheme, value: theme.themeIcon === "☀" ? "深色主题" : "亮色主题" },
-              { label: "字体", action: theme.toggleFont, value: theme.fontLabel },
-              { label: "CRT扫描线", action: theme.toggleScanline, value: theme.scanlineOn ? "开启" : "关闭" },
-            ].map(r => (
-              <div key={r.label} className="flex items-center justify-between">
-                <span className="text-xs text-[var(--text-pri)]">{r.label}</span>
-                <Button variant="ghost" size="sm" onClick={r.action}>{r.value}</Button>
-              </div>
-            ))}
+            <div className="flex items-center justify-between">
+              <span className="text-sm">主题</span>
+              <Button variant="ghost" size="sm" onClick={theme.toggleTheme}>{theme.themeIcon === "☀" ? "深色" : "亮色"}</Button>
+            </div>
           </div>
         </div>
-        <div className="bg-[var(--bg-panel)] border border-[var(--border)]">
-          <div className="font-mono text-[10px] tracking-[0.15em] text-[var(--amber)] uppercase px-2.5 py-1.5 border-b border-[var(--border)] bg-amber/4">◈ 关于</div>
-          <div className="p-3 text-[11px] leading-7 text-[var(--text-sec)]">
-            <div>GS690 功能码调试终端</div>
-            <div className="text-[var(--text-dim)]">版本: v3.0.0 (Next.js + shadcn/ui)</div>
+        <div className="border border-border rounded-lg">
+          <div className="px-3 py-2 border-b border-border bg-muted font-medium">关于</div>
+          <div className="p-3 text-sm text-muted-foreground">
+            <p>GS690 功能码调试终端</p>
+            <p>版本: v3.0.0</p>
           </div>
         </div>
       </div>

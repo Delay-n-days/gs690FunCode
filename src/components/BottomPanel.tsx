@@ -1,27 +1,30 @@
 "use client"
-/** BottomPanel — 底部面板（监视/历史） */
+import { useState, useEffect } from "react"
 import { useUIStore, useMonitorStore, useHistoryStore, useConnectionStore, useReadWriteStore } from "@/store"
 import { getDisplayValue, getValueClass } from "@/lib/utils"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 export default function BottomPanel() {
   const visible = useUIStore(s => s.monitorPanelVisible)
   const bottomTab = useUIStore(s => s.bottomTab)
   const setBottomTab = useUIStore(s => s.setBottomTab)
   const mainFlex = useUIStore(s => s.mainFlex)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
   if (!visible) return null
 
   return (
-    <div className="flex flex-col overflow-hidden bg-[var(--bg-panel)] border-t border-[var(--border)]" style={{ flex: `0 0 ${100 - mainFlex}%` }}>
+    <div className="flex flex-col overflow-hidden border-t border-border" style={{ flex: mounted ? `0 0 ${100 - mainFlex}%` : '0 0 40%' }}>
       <Tabs value={bottomTab} onValueChange={v => setBottomTab(v as typeof bottomTab)}>
-        <div className="flex items-center border-b border-[var(--border)] bg-[var(--bg-base)]">
-          <TabsList className="border-b-0">
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+          <TabsList>
             <TabsTrigger value="monitor">监视窗口</TabsTrigger>
             <TabsTrigger value="history">修改历史</TabsTrigger>
           </TabsList>
-          {bottomTab === "monitor" && <span className="font-mono text-[10px] ml-2 text-[var(--text-dim)]">{useMonitorStore.getState().items.length}/20</span>}
+          {bottomTab === "monitor" && <span className="text-sm text-muted-foreground">{useMonitorStore.getState().items.length}/20</span>}
           <div className="flex-1" />
           <TabActions />
         </div>
@@ -42,14 +45,14 @@ function TabActions() {
   const clearHistory = useHistoryStore(s => s.clearHistory)
   const toggleMonitorPanel = useUIStore(s => s.toggleMonitorPanel)
   return (
-    <div className="flex items-center gap-1 pr-2">
+    <div className="flex items-center gap-1">
       {tab === "monitor" && <>
-        <Button variant="green" size="sm" className="text-[10px]" disabled={!connected || monitoring} onClick={startMonitor}>▶ 开始</Button>
-        <Button variant="destructive" size="sm" className="text-[10px]" disabled={!monitoring} onClick={stopMonitor}>■ 停止</Button>
-        <Button variant="ghost" size="sm" className="text-[10px]" onClick={clearWatch}>清空</Button>
+        <Button size="sm" disabled={!connected || monitoring} onClick={startMonitor}>开始</Button>
+        <Button variant="destructive" size="sm" disabled={!monitoring} onClick={stopMonitor}>停止</Button>
+        <Button variant="ghost" size="sm" onClick={clearWatch}>清空</Button>
       </>}
-      {tab === "history" && <Button variant="ghost" size="sm" className="text-[10px]" onClick={clearHistory}>清空</Button>}
-      <Button variant="ghost" size="sm" className="text-[10px]" onClick={toggleMonitorPanel}>▽ 隐藏</Button>
+      {tab === "history" && <Button variant="ghost" size="sm" onClick={clearHistory}>清空</Button>}
+      <Button variant="ghost" size="sm" onClick={toggleMonitorPanel}>隐藏</Button>
     </div>
   )
 }
@@ -59,23 +62,29 @@ function MonitorTab() {
   const removeFromWatch = useMonitorStore(s => s.removeFromWatch)
   const readSingle = useReadWriteStore(s => s.readSingle)
   return (
-    <ScrollArea className="h-full">
-      <table className="fc-table" style={{ tableLayout: "fixed" }}>
-        <colgroup><col style={{ width: 30 }} /><col style={{ width: 80 }} /><col style={{ width: 120 }} /><col /></colgroup>
-        <thead><tr><th></th><th>功能码</th><th>注释</th><th>当前值</th></tr></thead>
-        <tbody>
+    <div className="h-full overflow-auto">
+      <Table>
+        <TableHeader className="sticky top-0 bg-background z-10">
+          <TableRow>
+            <TableHead className="w-8"></TableHead>
+            <TableHead>功能码</TableHead>
+            <TableHead>注释</TableHead>
+            <TableHead>当前值</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((item, i) => (
-            <tr key={item.function_code} className="fc-row" onDoubleClick={() => readSingle(item)}>
-              <td><Button variant="ghost" size="sm" className="h-5 px-1 text-[9px]" onClick={() => removeFromWatch(i)}>✕</Button></td>
-              <td><span className="font-mono text-[11px] text-[var(--amber)]">{item.function_code}</span></td>
-              <td><span className="text-[11px] text-[var(--text-pri)]">{item.comment}</span></td>
-              <td><span className={`val-display ${getValueClass(item)}`}>{getDisplayValue(item)}</span></td>
-            </tr>
+            <TableRow key={item.function_code} className="cursor-pointer" onDoubleClick={() => readSingle(item)}>
+              <TableCell><Button variant="ghost" size="sm" onClick={() => removeFromWatch(i)}>✕</Button></TableCell>
+              <TableCell className="font-mono text-primary">{item.function_code}</TableCell>
+              <TableCell>{item.comment}</TableCell>
+              <TableCell><span className={`font-mono ${getValueClass(item)}`}>{getDisplayValue(item)}</span></TableCell>
+            </TableRow>
           ))}
-          {items.length === 0 && <tr><td colSpan={4} className="text-center py-5 font-mono text-[11px] text-[var(--text-dim)]">— 右键点击功能码添加到监视窗口 —</td></tr>}
-        </tbody>
-      </table>
-    </ScrollArea>
+          {items.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">右键点击功能码添加到监视窗口</TableCell></TableRow>}
+        </TableBody>
+      </Table>
+    </div>
   )
 }
 
@@ -83,24 +92,32 @@ function HistoryTab() {
   const items = useHistoryStore(s => s.items)
   const removeItem = useHistoryStore(s => s.removeItem)
   return (
-    <ScrollArea className="h-full">
-      <table className="fc-table" style={{ tableLayout: "fixed" }}>
-        <colgroup><col style={{ width: 30 }} /><col style={{ width: 80 }} /><col style={{ width: 120 }} /><col /><col /><col style={{ width: 80 }} /></colgroup>
-        <thead><tr><th></th><th>功能码</th><th>注释</th><th>修改前</th><th>修改后</th><th>时间</th></tr></thead>
-        <tbody>
+    <div className="h-full overflow-auto">
+      <Table>
+        <TableHeader className="sticky top-0 bg-background z-10">
+          <TableRow>
+            <TableHead className="w-8"></TableHead>
+            <TableHead>功能码</TableHead>
+            <TableHead>注释</TableHead>
+            <TableHead>修改前</TableHead>
+            <TableHead>修改后</TableHead>
+            <TableHead>时间</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {items.map((item, i) => (
-            <tr key={i} className="fc-row">
-              <td><button className="btn btn-ghost px-1 py-0 text-[9px]" onClick={() => removeItem(i)}>✕</button></td>
-              <td><span className="font-mono text-[11px] text-[var(--amber)]">{item.function_code}</span></td>
-              <td><span className="text-[11px] text-[var(--text-pri)]">{item.comment}</span></td>
-              <td><span className="font-mono text-xs text-[var(--red)]">{item.oldValue}</span></td>
-              <td><span className="font-mono text-xs text-[var(--green)]">{item.newValue}</span></td>
-              <td><span className="font-mono text-[10px] text-[var(--text-dim)]">{item.time}</span></td>
-            </tr>
+            <TableRow key={i}>
+              <TableCell><Button variant="ghost" size="sm" onClick={() => removeItem(i)}>✕</Button></TableCell>
+              <TableCell className="font-mono text-primary">{item.function_code}</TableCell>
+              <TableCell>{item.comment}</TableCell>
+              <TableCell className="font-mono text-destructive">{item.oldValue}</TableCell>
+              <TableCell className="font-mono text-green-600">{item.newValue}</TableCell>
+              <TableCell className="text-muted-foreground">{item.time}</TableCell>
+            </TableRow>
           ))}
-          {items.length === 0 && <tr><td colSpan={6} className="text-center py-5 font-mono text-[11px] text-[var(--text-dim)]">— 暂无修改记录 —</td></tr>}
-        </tbody>
-      </table>
-    </ScrollArea>
+          {items.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">暂无修改记录</TableCell></TableRow>}
+        </TableBody>
+      </Table>
+    </div>
   )
 }

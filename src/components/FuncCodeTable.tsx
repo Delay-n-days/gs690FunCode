@@ -1,5 +1,4 @@
 "use client"
-/** FuncCodeTable — 功能码表格：分组侧边栏 + 工具栏 + 选择栏 + 表格主体 */
 import { useMemo } from "react"
 import { useFuncodeStore, useConnectionStore, useReadWriteStore, useUIStore } from "@/store"
 import { ADDR_TYPE_NAMES } from "@/lib/constants"
@@ -9,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { RefreshCw, ChevronRight } from "lucide-react"
 
 export default function FuncCodeTable({ filteredCodes }: { filteredCodes: FuncCodeRuntime[] }) {
@@ -31,88 +32,80 @@ export default function FuncCodeTable({ filteredCodes }: { filteredCodes: FuncCo
   const allVisibleSelected = filteredCodes.length > 0 && filteredCodes.every(fc => selectedRows.has(fc.function_code))
 
   return (
-    <div className="flex flex-row flex-1 border-r border-[var(--border)]">
-      {/* 分组侧边栏 */}
-      <div className="w-[140px] flex-shrink-0 flex flex-col bg-[var(--bg-base)] border-r border-[var(--border)]">
-        <div className="px-2 py-1.5 border-b border-[var(--border)] bg-[var(--bg-panel)]">
-          <span className="font-mono text-[10px] tracking-[0.1em] text-[var(--amber)]">分组列表</span>
+    <div className="flex flex-1 border-r border-border overflow-hidden">
+      <div className="w-40 flex-shrink-0 flex flex-col border-r border-border bg-muted/30 overflow-hidden">
+        <div className="px-3 py-2 border-b border-border">
+          <span className="text-sm font-medium">分组列表</span>
         </div>
-        <ScrollArea className="flex-1">
-          <div className="cursor-pointer px-2.5 py-2 border-b border-[var(--border)]" style={{ background: filterGroup === "" ? "var(--bg-selected)" : "transparent", borderLeft: filterGroup === "" ? "3px solid var(--amber)" : "3px solid transparent" }}
-            onClick={() => useFuncodeStore.getState().setFilterGroup("")}>
-            <div className="text-[11px] text-[var(--text-pri)]">全部</div>
-            <div className="font-mono text-[9px] mt-0.5 text-[var(--text-dim)]">{funcodes.length} 个功能码</div>
+        <ScrollArea className="flex-1 min-h-0">
+          <div className={`cursor-pointer px-3 py-2 border-b border-border hover:bg-accent ${filterGroup === "" ? "bg-accent" : ""}`} onClick={() => useFuncodeStore.getState().setFilterGroup("")}>
+            <div className="text-sm font-medium">全部</div>
+            <div className="text-xs text-muted-foreground">{funcodes.length} 个功能码</div>
           </div>
           {groups.map(g => (
-            <div key={g} className="cursor-pointer px-2.5 py-2 border-b border-[var(--border)]" style={{ background: filterGroup === g ? "var(--bg-selected)" : "transparent", borderLeft: filterGroup === g ? "3px solid var(--amber)" : "3px solid transparent" }}
-              onClick={() => useFuncodeStore.getState().setFilterGroup(g)}>
-              <div className="flex items-center gap-1.5">
-                <span className="font-mono text-[10px] px-1 rounded-sm text-[var(--amber)] bg-[var(--amber-glow)]">{getGroupPrefix(g, funcodes)}</span>
-                <span className="text-[11px] flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-[var(--text-pri)]" title={g}>{g}</span>
-                <span className="font-mono text-[9px] px-1 rounded-sm text-[var(--cyan)] bg-cyan/10">{getGroupCount(g, funcodes)}</span>
+            <div key={g} className={`cursor-pointer px-3 py-2 border-b border-border hover:bg-accent ${filterGroup === g ? "bg-accent" : ""}`} onClick={() => useFuncodeStore.getState().setFilterGroup(g)}>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">{getGroupPrefix(g, funcodes)}</Badge>
+                <span className="flex-1 truncate text-sm" title={g}>{g}</span>
+                <Badge variant="secondary" className="text-xs">{getGroupCount(g, funcodes)}</Badge>
               </div>
             </div>
           ))}
         </ScrollArea>
       </div>
-
-      {/* 功能码表格区域 */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* 工具栏 */}
-        <div className="px-2.5 py-2 flex items-center gap-1.5 border-b border-[var(--border)] bg-[var(--bg-base)] flex-shrink-0">
-          <Input className="flex-1 h-7 font-mono text-[11px] bg-[var(--bg-base)] border-[var(--border)] text-[var(--text-pri)] focus:border-[var(--border-bright)]" placeholder="搜索功能码 / 名称 / 注释..." value={filterText} onChange={e => setFilterText(e.target.value)} />
-          <select className="font-mono text-[11px] px-2 py-1 h-7 bg-[var(--bg-base)] border border-[var(--border)] text-[var(--text-pri)] outline-none w-[110px]" value={selectedAddrType} onChange={e => setSelectedAddrType(Number(e.target.value))}>
-            {Object.entries(ADDR_TYPE_NAMES).map(([v, n]) => <option key={v} value={v}>{n}</option>)}
-          </select>
-          <Button variant="default" size="sm" disabled={!connected || selectedRows.size === 0 || busy} onClick={readSelected}>
-            <ChevronRight className="w-3 h-3" /> READ ({selectedRows.size})
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <div className="px-3 py-2 flex items-center gap-2 border-b border-border">
+          <Input className="flex-1" placeholder="搜索功能码 / 名称 / 注释..." value={filterText} onChange={e => setFilterText(e.target.value)} />
+          <Select value={String(selectedAddrType)} onValueChange={v => setSelectedAddrType(Number(v))}>
+            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {Object.entries(ADDR_TYPE_NAMES).map(([v, n]) => <SelectItem key={v} value={v}>{n}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button size="sm" disabled={!connected || selectedRows.size === 0 || busy} onClick={readSelected}>
+            <ChevronRight data-icon="inline-start" /> 读取 ({selectedRows.size})
           </Button>
-          <Button variant="cyan" size="sm" disabled={!connected || busy} onClick={readAll}>
-            <RefreshCw className="w-3 h-3" /> ALL
+          <Button variant="secondary" size="sm" disabled={!connected || busy} onClick={readAll}>
+            <RefreshCw data-icon="inline-start" /> 全部
           </Button>
         </div>
-
-        {/* 选择栏 */}
-        <div className="px-2.5 py-1 flex items-center gap-2.5 border-b border-[var(--border)] bg-[var(--bg-panel)] flex-shrink-0">
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input type="checkbox" className="row-checkbox" checked={allVisibleSelected} onChange={e => toggleSelectAll(e.target.checked, filteredCodes)} />
-            <span className="font-mono text-[10px] text-[var(--text-dim)]">全选</span>
+        <div className="px-3 py-1.5 flex items-center gap-3 border-b border-border bg-muted/50">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" className="accent-primary" checked={allVisibleSelected} onChange={e => toggleSelectAll(e.target.checked, filteredCodes)} />
+            <span className="text-sm">全选</span>
           </label>
-          <span className="font-mono text-[10px] text-[var(--text-dim)]">{filteredCodes.length} 条 · 已选 {selectedRows.size}</span>
+          <span className="text-sm text-muted-foreground">{filteredCodes.length} 条 · 已选 {selectedRows.size}</span>
           <div className="flex-1" />
-          <Button variant="ghost" size="sm" className="text-[9px] px-2 py-0.5" onClick={clearSelection}>清除选择</Button>
-          <Button variant="destructive" size="sm" disabled={!connected || selectedRows.size === 0 || busy} onClick={writeSelected}>▲ WRITE</Button>
+          <Button variant="ghost" size="sm" onClick={clearSelection}>清除选择</Button>
+          <Button variant="destructive" size="sm" disabled={!connected || selectedRows.size === 0 || busy} onClick={writeSelected}>写入</Button>
         </div>
-
-        {/* 表格 */}
-        <ScrollArea className="flex-1">
-          <table className="fc-table">
-            <thead>
-              <tr>
-                <th style={{ width: 28 }}></th>
-                <th style={{ width: 55 }}>属性</th>
-                <th style={{ width: 60 }}>功能码</th>
-                <th style={{ minWidth: 90 }}>注释</th>
-                <th style={{ width: 70 }}>出厂值</th>
-                <th style={{ width: 80, textAlign: "right", paddingRight: 12 }}>当前值</th>
-                <th style={{ width: 50 }}>单位</th>
-                <th style={{ width: 155 }}>设置值</th>
-                <th style={{ width: 100 }}>范围</th>
-                <th style={{ width: 250 }}>选项说明</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="flex-1 min-h-0 overflow-auto">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background z-10">
+              <TableRow>
+                <TableHead className="w-8"></TableHead>
+                <TableHead className="w-12">属性</TableHead>
+                <TableHead className="w-20">功能码</TableHead>
+                <TableHead>注释</TableHead>
+                <TableHead className="w-20">出厂值</TableHead>
+                <TableHead className="w-24 text-right">当前值</TableHead>
+                <TableHead className="w-16">单位</TableHead>
+                <TableHead className="w-36">设置值</TableHead>
+                <TableHead className="w-28">范围</TableHead>
+                <TableHead className="w-64">选项说明</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {filteredCodes.map(fc => <FuncCodeRow key={fc.function_code} fc={fc} />)}
-              {filteredCodes.length === 0 && <tr><td colSpan={10} className="text-center py-5 font-mono text-[11px] text-[var(--text-dim)]">— NO MATCH —</td></tr>}
-            </tbody>
-          </table>
-        </ScrollArea>
+              {filteredCodes.length === 0 && <TableRow><TableCell colSpan={10} className="text-center py-8 text-muted-foreground">无匹配数据</TableCell></TableRow>}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   )
 }
 
-/** 功能码单行 */
 function FuncCodeRow({ fc }: { fc: FuncCodeRuntime }) {
   const toggleRow = useFuncodeStore(s => s.toggleRow)
   const selectedRows = useFuncodeStore(s => s.selectedRows)
@@ -129,33 +122,37 @@ function FuncCodeRow({ fc }: { fc: FuncCodeRuntime }) {
   const writable = isWritable(fc)
   const pendingVal = pendingWrites[fc.function_code] || ""
 
+  const badgeVariant = fc.wr_attribute === "△" ? "default" : fc.wr_attribute === "×" ? "destructive" : "secondary"
+
   return (
-    <tr
-      className={`fc-row ${isSelected ? "selected" : ""}`}
+    <TableRow
+      className={`cursor-pointer ${isSelected ? "bg-accent" : ""}`}
       onClick={() => setContextMenu({ ...useUIStore.getState().contextMenu, funcCode: fc })}
       onDoubleClick={() => readSingle(fc)}
       onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setContextMenu({ visible: true, x: e.clientX, y: e.clientY, funcCode: fc }) }}
     >
-      <td onClick={e => e.stopPropagation()}><input type="checkbox" className="row-checkbox" checked={isSelected} onChange={() => toggleRow(fc)} /></td>
-      <td><Badge variant={fc.wr_attribute === "△" ? "rw" : fc.wr_attribute === "×" ? "rws" : "r"}>{getWrLabel(fc.wr_attribute)}</Badge></td>
-      <td><span className="font-mono text-[11px] text-[var(--amber)]">{fc.function_code}</span></td>
-      <td><span className="text-[11px] text-[var(--text-pri)]">{fc.comment}</span></td>
-      <td><span className="font-mono text-[10px] text-[var(--amber)]">{getDisplayFactoryValue(fc)}</span></td>
-      <td style={{ textAlign: "right", paddingRight: 12 }}><span className={`val-display ${getValueClass(fc)}`}>{getDisplayValue(fc)}</span></td>
-      <td><span className="font-mono text-[10px] text-[var(--text-sec)]">{fc.unit}</span></td>
-      <td onClick={e => e.stopPropagation()} style={{ width: 155 }}>
+      <TableCell onClick={e => e.stopPropagation()}>
+        <input type="checkbox" className="accent-primary" checked={isSelected} onChange={() => toggleRow(fc)} />
+      </TableCell>
+      <TableCell><Badge variant={badgeVariant} className="text-xs">{getWrLabel(fc.wr_attribute)}</Badge></TableCell>
+      <TableCell className="font-mono text-primary">{fc.function_code}</TableCell>
+      <TableCell>{fc.comment}</TableCell>
+      <TableCell className="font-mono text-primary">{getDisplayFactoryValue(fc)}</TableCell>
+      <TableCell className="text-right"><span className="font-mono text-base text-primary">{getDisplayValue(fc)}</span></TableCell>
+      <TableCell className="text-muted-foreground">{fc.unit}</TableCell>
+      <TableCell onClick={e => e.stopPropagation()}>
         {writable && (
-          <div className="flex items-center gap-0.5">
-            <Input className="h-6 font-mono text-[12px] text-[var(--amber)] bg-[var(--bg-base)] border-[var(--border-bright)] w-[80px] flex-shrink-0 focus:border-[var(--amber)] focus:shadow-[0_0_0_2px_var(--amber-glow)]" placeholder={getDisplayFactoryValue(fc)} value={pendingVal} onChange={e => setPendingWrite(fc.function_code, e.target.value)} onKeyDown={e => e.key === "Enter" && writeSingle(fc)} />
-            <Button variant="green" size="sm" className="h-6 px-1.5 text-[10px]" style={{ visibility: pendingVal ? "visible" : "hidden" }} disabled={!connected || busy || !pendingVal} onClick={() => writeSingle(fc)}>▲</Button>
+          <div className="flex items-center gap-1">
+            <Input className="h-7 w-20 font-mono" placeholder={getDisplayFactoryValue(fc)} value={pendingVal} onChange={e => setPendingWrite(fc.function_code, e.target.value)} onKeyDown={e => e.key === "Enter" && writeSingle(fc)} />
+            <Button size="sm" className={pendingVal ? "visible" : "invisible"} disabled={!connected || busy || !pendingVal} onClick={() => writeSingle(fc)}>▲</Button>
           </div>
         )}
-      </td>
-      <td><span className="font-mono text-[10px] text-[var(--text-sec)]">{getDisplayLowerLimit(fc)}~{getDisplayUpperLimit(fc)}</span></td>
-      <td style={{ position: "relative" }}>
+      </TableCell>
+      <TableCell className="text-muted-foreground">{getDisplayLowerLimit(fc)}~{getDisplayUpperLimit(fc)}</TableCell>
+      <TableCell className="relative">
         <div className="flex items-center gap-1">
           {parseOptions(fc.function_code_option).length > 0 && (
-            <button className="px-1 py-0.5 rounded-sm cursor-pointer text-[9px] bg-[var(--amber-glow)] border border-[var(--amber)] text-[var(--amber)]" onClick={e => {
+            <Button variant="outline" size="sm" onClick={e => {
               e.stopPropagation()
               const r = (e.target as HTMLElement).getBoundingClientRect()
               let top = r.bottom + 4, left = r.left
@@ -163,11 +160,11 @@ function FuncCodeRow({ fc }: { fc: FuncCodeRuntime }) {
               if (left + 320 > window.innerWidth) left = window.innerWidth - 330
               if (left < 0) left = 10
               setPopover({ visible: true, x: left, y: top, funcCode: fc })
-            }}>▼</button>
+            }}>▼</Button>
           )}
-          <span className="text-[10px] overflow-hidden text-ellipsis whitespace-nowrap block text-[var(--text-sec)]" style={{ width: 250 }} title={fc.function_code_option}>{fc.function_code_option}</span>
+          <span className="text-sm truncate text-muted-foreground w-56" title={fc.function_code_option}>{fc.function_code_option}</span>
         </div>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   )
 }

@@ -1,7 +1,7 @@
 "use client"
-/** StatusBar — 底部状态栏 */
 import { useState, useEffect } from "react"
 import { useConnectionStore } from "@/store"
+import { Separator } from "@/components/ui/separator"
 
 export default function StatusBar() {
   const statusMsg = useConnectionStore(s => s.statusMsg)
@@ -14,12 +14,12 @@ export default function StatusBar() {
     return () => clearInterval(t)
   }, [])
   return (
-    <div className="h-6 flex items-center px-3 gap-4 flex-shrink-0 bg-[var(--bg-base)] border-t border-[var(--border)]">
-      <span className="font-mono text-[10px]"><span className={busy ? "blink" : ""} style={{ color: busy ? "var(--amber)" : "var(--text-dim)" }}>{statusMsg}</span></span>
-      <span className="font-mono text-[10px] text-[var(--text-dim)]">|</span>
-      <span className="font-mono text-[10px] text-[var(--text-dim)]">SERIAL</span>
+    <footer className="h-8 flex items-center px-4 gap-4 flex-shrink-0 border-t border-border bg-muted/30">
+      <span className={`text-sm ${busy ? "animate-pulse text-primary" : "text-muted-foreground"}`}>{statusMsg}</span>
+      <Separator orientation="vertical" className="h-4" />
+      <span className="text-sm text-muted-foreground">SERIAL</span>
       <div className="flex-1" />
-      <span className="font-mono text-[10px] text-[var(--text-dim)]">{time}</span>
-    </div>
+      <span className="text-sm text-muted-foreground">{time}</span>
+    </footer>
   )
 }

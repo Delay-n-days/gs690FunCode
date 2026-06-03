@@ -278,7 +278,9 @@ async function readFromBackend(
     fcs.forEach((fc, i) => {
       if (i < values.length) {
         const v = values[i];
-        if (v.status === 0) {
+        // 兼容数字 0 和字符串 'STATUS_SUCCESS'
+        const isSuccess = v.status === 0 || v.status === 'STATUS_SUCCESS';
+        if (isSuccess) {
           useFuncodeStore.getState().updateFuncodeValue(fc.function_code, v.value, false);
         } else {
           useFuncodeStore.getState().updateFuncodeValue(fc.function_code, null, true);
@@ -632,7 +634,9 @@ export const useMonitorStore = create<MonitorState>((set, get) => ({
       const updatedItems = items.map((fc, i) => {
         if (i < values.length) {
           const v = values[i];
-          if (v.status === 0) {
+          // 兼容数字 0 和字符串 'STATUS_SUCCESS'
+          const isSuccess = v.status === 0 || v.status === 'STATUS_SUCCESS';
+          if (isSuccess) {
             return { ...fc, _value: v.value, _error: false, _pending: false };
           }
           return { ...fc, _error: true, _pending: false };
