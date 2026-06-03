@@ -39,7 +39,6 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 恢复 Rust 编译缓存
       - name: Restore Rust cache
         uses: actions/cache/restore@v4
         with:
@@ -52,21 +51,38 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
-      - name: Install R2 upload tools
-        run: npm install @aws-sdk/client-s3 @aws-sdk/lib-storage
 
+      - name: Install R2 upload tools
+        run: npm install @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
+
+      # === R2 连通性测试 ===
       - name: Test R2 connectivity
-        shell: bash
         run: |
           node -e "
-            const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-            const client = new S3Client({ region: 'auto', endpoint: 'https://' + process.env.R2_ACCOUNT_ID + '.r2.cloudflarestorage.com', credentials: { accessKeyId: process.env.R2_ACCESS_KEY_ID, secretAccessKey: process.env.R2_SECRET_ACCESS_KEY } });
-            const bucket = process.env.R2_BUCKET;
-            const domain = process.env.R2_CUSTOM_DOMAIN;
-            client.send(new PutObjectCommand({ Bucket: bucket, Key: 'test-r2.txt', Body: 'ok', ContentType: 'text/plain' })).then(() => {
+            const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+            const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+            (async () => {
+              const client = new S3Client({
+                region: 'auto',
+                endpoint: 'https://' + process.env.R2_ACCOUNT_ID + '.r2.cloudflarestorage.com',
+                credentials: {
+                  accessKeyId: process.env.R2_ACCESS_KEY_ID,
+                  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY
+                }
+              });
+              await client.send(new PutObjectCommand({
+                Bucket: process.env.R2_BUCKET,
+                Key: 'test-r2.txt',
+                Body: 'ok',
+                ContentType: 'text/plain'
+              }));
               console.log('R2 upload test: OK');
-              console.log('Download URL: https://' + domain + '/test-r2.txt');
-            });
+              const url = await getSignedUrl(client, new GetObjectCommand({
+                Bucket: process.env.R2_BUCKET,
+                Key: 'test-r2.txt'
+              }));
+              console.log('Download URL: ' + url);
+            })();
           "
 
       - name: Install Tauri CLI
@@ -78,7 +94,6 @@ jobs:
       - name: Build Tauri app
         run: tauri build
 
-      # exe 产物路径（Cargo.toml package name = gs690-fun-code）
       - name: Upload exe to GitHub Artifacts
         if: success()
         uses: actions/upload-artifact@v4
@@ -86,26 +101,39 @@ jobs:
           name: gs690-funcode-terminal
           path: src-tauri/target/release/gs690-fun-code.exe
 
-      # 上传 exe 到 R2（内联 PowerShell，不需要 Node.js）
+      # 上传 exe 到 R2（AWS SDK）
       - name: Upload exe to R2
         if: success()
-        shell: pwsh
         run: |
-          $exe = "src-tauri/target/release/gs690-fun-code.exe"
-          $r2Key = "tauri-builds/gs690-funcode-terminal.exe"
-          $date = (Get-Date -AsUtc).ToString("ddd, dd MMM yyyy HH:mm:ss GMT")
-          $contentType = "application/vnd.microsoft.portable-executable"
-          $stringToSign = "PUT`n`n$contentType`n$date`n/$env:R2_BUCKET/$r2Key"
-          $hmac = [System.Security.Cryptography.HMACSHA1]::new([System.Text.Encoding]::UTF8.GetBytes($env:R2_SECRET_ACCESS_KEY))
-          $signature = [Convert]::ToBase64String($hmac.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($stringToSign)))
-          $auth = "AWS $($env:R2_ACCESS_KEY_ID):$signature"
-          $url = "https://$env:R2_ACCOUNT_ID.r2.cloudflarestorage.com/$env:R2_BUCKET/$r2Key"
-          Invoke-RestMethod -Uri $url -Method Put -InFile $exe -ContentType $contentType -Headers @{"Authorization"=$auth;"Date"=$date}
-          $downloadUrl = "https://$env:R2_CUSTOM_DOMAIN/$r2Key"
-          Write-Host "Uploaded to $downloadUrl"
-          Write-Host "Download URL: $downloadUrl"
+          node -e "
+            const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+            const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+            const fs = require('fs');
+            (async () => {
+              const client = new S3Client({
+                region: 'auto',
+                endpoint: 'https://' + process.env.R2_ACCOUNT_ID + '.r2.cloudflarestorage.com',
+                credentials: {
+                  accessKeyId: process.env.R2_ACCESS_KEY_ID,
+                  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY
+                }
+              });
+              const key = 'tauri-builds/gs690-funcode-terminal.exe';
+              await client.send(new PutObjectCommand({
+                Bucket: process.env.R2_BUCKET,
+                Key: key,
+                Body: fs.readFileSync('src-tauri/target/release/gs690-fun-code.exe'),
+                ContentType: 'application/vnd.microsoft.portable-executable'
+              }));
+              const url = await getSignedUrl(client, new GetObjectCommand({
+                Bucket: process.env.R2_BUCKET,
+                Key: key
+              }));
+              console.log('Uploaded to R2');
+              console.log('Download URL: ' + url);
+            })();
+          "
 
-      # 保存 Rust 编译缓存（编译失败也保存）
       - name: Save Rust cache
         if: always()
         uses: actions/cache/save@v4
