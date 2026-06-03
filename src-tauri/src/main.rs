@@ -1,3 +1,4 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 //! GS690 功能码调试终端 - Tauri 主入口
 
 mod commands;
