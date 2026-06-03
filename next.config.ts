@@ -1,18 +1,14 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* 
-   * API 代理配置：将 /api/* 请求转发到 FastAPI 后端
-   * 开发时 FastAPI 运行在 8081 端口，Next.js 在 8899 端口
+  /**
+   * 静态导出模式：输出纯 HTML/CSS/JS 到 out/ 目录
+   * Tauri 需要静态文件打包到 WebView 中
+   * 
+   * 注意：静态模式下 rewrites/API routes/middleware 均不可用
+   * 所有 API 调用走 Tauri IPC（前端 adapter 层已处理）
    */
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:8080/api/:path*'
-      },
-    ];
-  },
+  output: 'export',
 };
 
 export default nextConfig;
