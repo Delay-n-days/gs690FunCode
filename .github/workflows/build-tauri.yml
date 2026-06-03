@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -35,14 +36,45 @@ jobs:
           key: rust-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: rust-${{ runner.os }}-
 
-      - name: Install Tauri CLI
-        run: cargo install tauri-cli
-
       - name: Install frontend dependencies
         run: npm install
 
+      # === 阶段一：获取 cargo-tauri.exe ===
+
+      - name: Install R2 upload dependencies
+        run: npm install @aws-sdk/client-s3
+
+      - name: Download cargo-tauri.exe from R2
+        id: download-cli
+        continue-on-error: true
+        run: |
+          ${{ github.workspace }}\download-cli.bat
+
+      - name: Install Tauri CLI
+        if: steps.download-cli.outcome == 'failure'
+        run: cargo install tauri-cli
+
+      - name: Upload cargo-tauri.exe to R2
+        if: steps.download-cli.outcome == 'failure'
+        run: |
+          copy "$HOME\.cargo\bin\cargo-tauri.exe" cargo-tauri-windows-x64.exe
+          node upload-r2.js cargo-tauri-windows-x64.exe tauri-cli/cargo-tauri-windows-x64.exe
+          del cargo-tauri-windows-x64.exe
+
+      - name: Cache cargo-tauri.exe to GitHub Actions
+        if: steps.download-cli.outcome == 'failure'
+        uses: actions/cache/save@v4
+        with:
+          key: tauri-cli-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            C:\Users\runneradmin\.cargo\bin\cargo-tauri.exe
+
+      # === 阶段二：构建 Tauri 应用 ===
+
       - name: Build Tauri (release)
         run: cargo tauri build
+
+      # === 阶段三：上传产物 ===
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
@@ -51,3 +83,9 @@ jobs:
           path: |
             src-tauri/target/release/bundle/**/*.exe
           retention-days: 30
+
+      - name: Upload exe to R2
+        run: |
+          copy "src-tauri\target\release\bundle\nsis\*.exe" gs690-funcode.exe
+          node upload-r2.js gs690-funcode.exe tauri-builds/gs690-funcode.exe
+          del gs690-funcode.exe
