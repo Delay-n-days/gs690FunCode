@@ -282,3 +282,298 @@ pub fn parse_response_payload(frame: &Frame) -> Result<serde_json::Value, String
         _ => Err("未知响应类型".to_string()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ========== 帧序列化/反序列化测试 ==========
+
+    #[test]
+    fn test_serialize_deserialize_roundtrip() {
+        // 构建一个读请求帧
+        let payload = build_read_request(&[(0, 100, 0)]);
+        let frame = create_frame(0x02, CMD_READ_REQUEST, payload);
+        
+        // 序列化
+        let bytes = serialize_frame(&frame);
+        
+        // 验证帧头帧尾
+        assert_eq!(bytes[0..2], [0xAA, 0x55], "帧头错误");
+        assert_eq!(bytes[bytes.len()-2..], [0x55, 0xAA], "帧尾错误");
+        
+        // 验证长度字段（little-endian）
+        let len = u16::from_le_bytes([bytes[2], bytes[3]]);
+        assert_eq!(len as usize, bytes.len() - 6, "长度字段不匹配");
+        
+        // 反序列化
+        let parsed = deserialize_frame(&bytes).unwrap();
+        assert_eq!(parsed.version, 0x02);
+        assert_eq!(parsed.command, CMD_READ_REQUEST);
+    }
+
+    #[test]
+    fn test_serialize_frame_structure() {
+        let payload = build_read_request(&[]);
+        let frame = create_frame(1, 0x0100, payload);
+        let bytes = serialize_frame(&frame);
+        
+        // 最小帧 = 2(header) + 2(len) + 0(protobuf) + 2(tail) = 6
+        // 但 protobuf 空消息也有编码，所以 > 6
+        assert!(bytes.len() >= 6, "帧太短");
+        assert_eq!(&bytes[0..2], &[0xAA, 0x55]);
+        assert_eq!(&bytes[bytes.len()-2..], &[0x55, 0xAA]);
+    }
+
+    #[test]
+    fn test_deserialize_invalid_header() {
+        let data = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        let result = deserialize_frame(&data);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("帧头未找到"));
+    }
+
+    #[test]
+    fn test_deserialize_too_short() {
+        let data = [0xAA, 0x55]; // 只有帧头
+        let result = deserialize_frame(&data);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("数据长度不足"));
+    }
+
+    #[test]
+    fn test_deserialize_invalid_tail() {
+        // 构造一个帧头正确但帧尾错误的数据
+        let payload = build_read_request(&[(0, 100, 0)]);
+        let frame = create_frame(0x02, CMD_READ_REQUEST, payload);
+        let mut bytes = serialize_frame(&frame);
+        // 篡改帧尾
+        let len = bytes.len();
+        bytes[len - 1] = 0xFF;
+        
+        let result = deserialize_frame(&bytes);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("帧尾校验失败"));
+    }
+
+    #[test]
+    fn test_deserialize_with_garbage_before_header() {
+        // 帧头前有垃圾数据
+        let payload = build_read_request(&[(0, 42, 1)]);
+        let frame = create_frame(0x02, CMD_READ_REQUEST, payload);
+        let mut bytes = serialize_frame(&frame);
+        
+        // 前面加垃圾
+        let mut data = vec![0xDE, 0xAD, 0xBE, 0xEF];
+        data.append(&mut bytes);
+        
+        let parsed = deserialize_frame(&data).unwrap();
+        assert_eq!(parsed.version, 0x02);
+        assert_eq!(parsed.command, CMD_READ_REQUEST);
+    }
+
+    // ========== 请求构建测试 ==========
+
+    #[test]
+    fn test_build_read_request() {
+        let payload = build_read_request(&[
+            (0, 100, 0),
+            (1, 200, 1),
+        ]);
+        
+        match &payload.payload {
+            Some(frame_payload::Payload::ReadRequest(req)) => {
+                assert_eq!(req.addresses.len(), 2);
+                assert_eq!(req.addresses[0].addr_type, 0);
+                assert_eq!(req.addresses[0].var_address, 100);
+                assert_eq!(req.addresses[0].number_type, 0);
+                assert_eq!(req.addresses[1].addr_type, 1);
+                assert_eq!(req.addresses[1].var_address, 200);
+                assert_eq!(req.addresses[1].number_type, 1);
+            }
+            _ => panic!("不是 ReadRequest"),
+        }
+    }
+
+    #[test]
+    fn test_build_write_request() {
+        let payload = build_write_request(&[
+            (0, 100, 9999, 0),
+        ]);
+        
+        match &payload.payload {
+            Some(frame_payload::Payload::WriteRequest(req)) => {
+                assert_eq!(req.variables.len(), 1);
+                assert_eq!(req.variables[0].addr_type, 0);
+                assert_eq!(req.variables[0].var_address, 100);
+                assert_eq!(req.variables[0].value, 9999);
+                assert_eq!(req.variables[0].number_type, 0);
+            }
+            _ => panic!("不是 WriteRequest"),
+        }
+    }
+
+    #[test]
+    fn test_build_config_scope_request() {
+        let payload = build_config_scope_request(&[
+            (1, 0, 100, 0),
+            (2, 1, 200, 1),
+        ], 1000);
+        
+        match &payload.payload {
+            Some(frame_payload::Payload::ConfigScopeRequest(req)) => {
+                assert_eq!(req.channels.len(), 2);
+                assert_eq!(req.len, 2);
+                assert_eq!(req.count_every_secound, 1000);
+                assert_eq!(req.channels[0].channel_number, 1);
+                assert_eq!(req.channels[0].var_address, 100);
+            }
+            _ => panic!("不是 ConfigScopeRequest"),
+        }
+    }
+
+    #[test]
+    fn test_build_start_pause_request() {
+        let payload = build_start_pause_request(1);
+        match &payload.payload {
+            Some(frame_payload::Payload::StartPauseRequest(req)) => {
+                assert_eq!(req.operation, 1);
+            }
+            _ => panic!("不是 StartPauseRequest"),
+        }
+    }
+
+    #[test]
+    fn test_build_goto_boot_request() {
+        let payload = build_goto_boot_request();
+        match &payload.payload {
+            Some(frame_payload::Payload::GotoBootRequest(req)) => {
+                assert_eq!(req.reserved, 1);
+            }
+            _ => panic!("不是 GotoBootRequest"),
+        }
+    }
+
+    // ========== 响应解析测试 ==========
+
+    #[test]
+    fn test_parse_read_response() {
+        let resp_frame = Frame {
+            version: 0x02,
+            command: CMD_READ_RESPONSE,
+            payload: Some(FramePayload {
+                payload: Some(frame_payload::Payload::ReadResponse(ReadResponse {
+                    values: vec![
+                        VariableValue {
+                            status: 0,
+                            addr_type: 0,
+                            var_address: 100,
+                            value: 42,
+                            number_type: 0,
+                        },
+                    ],
+                })),
+            }),
+        };
+        
+        let result = parse_response_payload(&resp_frame).unwrap();
+        let values = result["values"].as_array().unwrap();
+        assert_eq!(values.len(), 1);
+        assert_eq!(values[0]["status"], 0);
+        assert_eq!(values[0]["value"], 42);
+        assert_eq!(values[0]["var_address"], 100);
+    }
+
+    #[test]
+    fn test_parse_write_response() {
+        let resp_frame = Frame {
+            version: 0x02,
+            command: CMD_WRITE_RESPONSE,
+            payload: Some(FramePayload {
+                payload: Some(frame_payload::Payload::WriteResponse(WriteResponse {
+                    statuses: vec![
+                        WriteStatus {
+                            addr_type: 0,
+                            var_address: 100,
+                            status: 0,
+                            current_value: 50,
+                            number_type: 0,
+                        },
+                    ],
+                })),
+            }),
+        };
+        
+        let result = parse_response_payload(&resp_frame).unwrap();
+        let statuses = result["statuses"].as_array().unwrap();
+        assert_eq!(statuses.len(), 1);
+        assert_eq!(statuses[0]["status"], 0);
+        assert_eq!(statuses[0]["current_value"], 50);
+    }
+
+    #[test]
+    fn test_parse_empty_payload() {
+        let resp_frame = Frame {
+            version: 0x02,
+            command: 0x0100,
+            payload: None,
+        };
+        
+        let result = parse_response_payload(&resp_frame);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("帧无 payload"));
+    }
+
+    // ========== 完整流程测试 ==========
+
+    #[test]
+    fn test_full_roundtrip_read() {
+        // 构建读请求 → 序列化 → 反序列化 → 验证
+        let payload = build_read_request(&[(0, 50, 0), (2, 100, 1)]);
+        let frame = create_frame(0x02, CMD_READ_REQUEST, payload);
+        let bytes = serialize_frame(&frame);
+        let parsed = deserialize_frame(&bytes).unwrap();
+        
+        assert_eq!(parsed.version, 0x02);
+        assert_eq!(parsed.command, CMD_READ_REQUEST);
+        
+        // 验证数据完整性
+        match &parsed.payload.as_ref().unwrap().payload {
+            Some(frame_payload::Payload::ReadRequest(req)) => {
+                assert_eq!(req.addresses.len(), 2);
+                assert_eq!(req.addresses[0].var_address, 50);
+                assert_eq!(req.addresses[1].var_address, 100);
+            }
+            _ => panic!("数据损坏"),
+        }
+    }
+
+    #[test]
+    fn test_full_roundtrip_write() {
+        let payload = build_write_request(&[(0, 200, 12345, 0)]);
+        let frame = create_frame(0x02, CMD_WRITE_REQUEST, payload);
+        let bytes = serialize_frame(&frame);
+        let parsed = deserialize_frame(&bytes).unwrap();
+        
+        assert_eq!(parsed.command, CMD_WRITE_REQUEST);
+    }
+
+    // ========== 常量测试 ==========
+
+    #[test]
+    fn test_command_names() {
+        assert_eq!(get_command_name(0x0100), "读请求");
+        assert_eq!(get_command_name(0x8100), "读响应");
+        assert_eq!(get_command_name(0x0101), "写请求");
+        assert_eq!(get_command_name(0x8101), "写响应");
+        assert_eq!(get_command_name(0x0200), "配置示波器请求");
+        assert_eq!(get_command_name(0x0300), "进入Boot请求");
+        assert_eq!(get_command_name(0xFFFF), "未知命令");
+    }
+
+    #[test]
+    fn test_frame_header_tail_constants() {
+        assert_eq!(FRAME_HEADER, [0xAA, 0x55]);
+        assert_eq!(FRAME_TAIL, [0x55, 0xAA]);
+    }
+}

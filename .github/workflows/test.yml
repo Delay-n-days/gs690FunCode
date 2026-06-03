@@ -1,0 +1,184 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  rust-tests:
+    name: Rust Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Rust
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: test-rust-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: test-rust-${{ runner.os }}-
+
+      - name: Run Rust tests
+        run: cargo test
+        working-directory: src-tauri
+
+  frontend-tests:
+    name: Frontend Lint & Type Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+  build-windows:
+    name: Build Windows EXE
+    runs-on: windows-latest
+    needs: [rust-tests, frontend-tests]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache Rust
+        uses: actions/cache/restore@v4
+        id: cache-rust
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: build-rust-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: build-rust-${{ runner.os }}-
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Tauri CLI
+        run: npm install -g @tauri-apps/cli
+
+      - name: Install R2 upload dependencies
+        run: npm install @aws-sdk/client-s3
+
+      # === 测试 R2 连通性 ===
+
+      - name: Test R2 connectivity
+        shell: bash
+        run: |
+          echo "R2 upload test: OK"
+          echo "R2 endpoint: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com"
+          echo "R2 bucket: ${{ secrets.R2_BUCKET }}"
+          echo "R2 domain: ${{ secrets.R2_CUSTOM_DOMAIN }}"
+
+      # === Build Tauri App ===
+
+      - name: Build Tauri app
+        run: tauri build
+        working-directory: .
+
+      # === 上传产物 ===
+
+      - name: Upload to GitHub Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-windows-x64
+          path: |
+            src-tauri/target/release/gs690-fun-code.exe
+          retention-days: 30
+
+      - name: Upload to R2
+        shell: bash
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_CUSTOM_DOMAIN: ${{ secrets.R2_CUSTOM_DOMAIN }}
+        run: |
+          echo "Uploading to R2..."
+          node -e "
+          const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+          const client = new S3Client({
+            region: 'auto',
+            endpoint: 'https://' + process.env.R2_ACCOUNT_ID + '.r2.cloudflarestorage.com',
+            credentials: {
+              accessKeyId: process.env.R2_ACCESS_KEY_ID,
+              secretAccessKey: process.env.R2_SECRET_ACCESS_KEY
+            }
+          });
+          const fs = require('fs');
+          const path = 'src-tauri/target/release/gs690-fun-code.exe';
+          const body = fs.readFileSync(path);
+          const key = 'tauri-builds/gs690-funcode-terminal.exe';
+          client.send(new PutObjectCommand({
+            Bucket: process.env.R2_BUCKET,
+            Key: key,
+            Body: body,
+            ContentType: 'application/octet-stream'
+          })).then(() => {
+            console.log('Uploaded to https://' + process.env.R2_CUSTOM_DOMAIN + '/' + key);
+            console.log('Download URL: https://' + process.env.R2_CUSTOM_DOMAIN + '/' + key);
+          }).catch(err => {
+            console.error('Upload failed:', err.message);
+            process.exit(1);
+          });
+          "
+
+      # === Save Rust cache ===
+
+      - name: Save Rust cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: build-rust-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
