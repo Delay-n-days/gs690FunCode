@@ -19,6 +19,7 @@ jobs:
       R2_ACCESS_KEY_ID: "cb15bd80fad859a8d7c22231281e1bea"
       R2_SECRET_ACCESS_KEY: "f4703ccd61a12224aa835171c2b2afc0152a082d6d0aa6edcef3820f2f88bf07"
       R2_BUCKET: "hucos"
+      R2_CUSTOM_DOMAIN: "pub-634661256d2a40a5a022b824d51bf62d.r2.dev"
 
     steps:
       - name: Checkout
@@ -33,10 +34,14 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # 恢复 Rust 缓存（restore 单独步骤，不受 build 结果影响）
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 恢复 Rust 编译缓存
       - name: Restore Rust cache
         uses: actions/cache/restore@v4
-        id: rust-cache
         with:
           path: |
             ~/.cargo/registry
@@ -45,16 +50,8 @@ jobs:
           key: rust-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: rust-${{ runner.os }}-
 
-      - name: Install protoc
-        uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Install frontend dependencies
         run: npm ci
-
-      - name: Install R2 upload tool
-        run: npm install @aws-sdk/client-s3
 
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli
@@ -65,20 +62,32 @@ jobs:
       - name: Build Tauri app
         run: tauri build
 
-      # 上传 exe 到 GitHub Artifacts
+      # exe 产物路径（Cargo.toml package name = gs690-fun-code）
       - name: Upload exe to GitHub Artifacts
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: gs690-funcode-terminal
-          path: src-tauri/target/release/gs690-funcode-terminal.exe
+          path: src-tauri/target/release/gs690-fun-code.exe
 
-      # 上传 exe 到 R2
+      # 上传 exe 到 R2（内联 PowerShell，不需要 Node.js）
       - name: Upload exe to R2
         if: success()
-        run: node .github/scripts/upload-r2.js src-tauri/target/release/gs690-funcode-terminal.exe tauri-builds/gs690-funcode-terminal.exe
+        shell: pwsh
+        run: |
+          $exe = "src-tauri/target/release/gs690-fun-code.exe"
+          $r2Key = "tauri-builds/gs690-funcode-terminal.exe"
+          $date = (Get-Date -AsUtc).ToString("ddd, dd MMM yyyy HH:mm:ss GMT")
+          $contentType = "application/vnd.microsoft.portable-executable"
+          $stringToSign = "PUT`n`n$contentType`n$date`n/$env:R2_BUCKET/$r2Key"
+          $hmac = [System.Security.Cryptography.HMACSHA1]::new([System.Text.Encoding]::UTF8.GetBytes($env:R2_SECRET_ACCESS_KEY))
+          $signature = [Convert]::ToBase64String($hmac.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($stringToSign)))
+          $auth = "AWS $($env:R2_ACCESS_KEY_ID):$signature"
+          $url = "https://$env:R2_ACCOUNT_ID.r2.cloudflarestorage.com/$env:R2_BUCKET/$r2Key"
+          Invoke-RestMethod -Uri $url -Method Put -InFile $exe -ContentType $contentType -Headers @{"Authorization"=$auth;"Date"=$date}
+          Write-Host "Uploaded to https://$env:R2_CUSTOM_DOMAIN/$r2Key"
 
-      # 保存 Rust 缓存（always，编译失败也保存，下次不用从头来）
+      # 保存 Rust 编译缓存（编译失败也保存）
       - name: Save Rust cache
         if: always()
         uses: actions/cache/save@v4
