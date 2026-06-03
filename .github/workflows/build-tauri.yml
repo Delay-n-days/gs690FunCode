@@ -33,9 +33,10 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # Rust 依赖缓存
-      - name: Rust 编译缓存
-        uses: actions/cache@v4
+      # 恢复 Rust 缓存（restore 单独步骤，不受 build 结果影响）
+      - name: Restore Rust cache
+        uses: actions/cache/restore@v4
+        id: rust-cache
         with:
           path: |
             ~/.cargo/registry
@@ -66,6 +67,7 @@ jobs:
 
       # 上传 exe 到 GitHub Artifacts
       - name: Upload exe to GitHub Artifacts
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: gs690-funcode-terminal
@@ -73,4 +75,16 @@ jobs:
 
       # 上传 exe 到 R2
       - name: Upload exe to R2
+        if: success()
         run: node .github/scripts/upload-r2.js src-tauri/target/release/gs690-funcode-terminal.exe tauri-builds/gs690-funcode-terminal.exe
+
+      # 保存 Rust 缓存（always，编译失败也保存，下次不用从头来）
+      - name: Save Rust cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: rust-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
