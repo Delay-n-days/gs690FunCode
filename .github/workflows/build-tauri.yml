@@ -33,6 +33,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      # Rust 依赖缓存（编译项目本身）
       - name: Cache Rust
         uses: actions/cache@v4
         with:
@@ -46,83 +47,19 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Install R2 upload dependencies
-        run: npm install @aws-sdk/client-s3
-
-      # === 阶段零：测试 R2 连通性 ===
-
-      - name: Test R2 connectivity
-        run: |
-          echo "test" > test-r2.txt
-          node upload-r2.js test-r2.txt ci-ping/test.txt
-          del test-r2.txt
-
-      # === 阶段一：获取 cargo-tauri.exe ===
-
-      - name: Download cargo-tauri.exe from R2
-        id: download-cli
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          $url = "https://pub-634661256d2a40a5a022b824d51bf62d.r2.dev/tauri-cli/cargo-tauri-windows-x64.exe"
-          $out = "$HOME\.cargo\bin\cargo-tauri.exe"
-          Invoke-WebRequest -Uri $url -OutFile $out -ErrorAction Stop
-          Write-Host "Downloaded cargo-tauri.exe from R2"
-
-      - name: Cache restore cargo-tauri.exe
-        if: steps.download-cli.outcome == 'failure'
-        uses: actions/cache/restore@v4
-        with:
-          key: tauri-cli-${{ runner.os }}-${{ runner.arch }}
-          path: C:\Users\runneradmin\.cargo\bin\cargo-tauri.exe
-          fail-on-cache-miss: false
-          lookup-only: false
-        id: cache-cli
-
-      - name: Verify tauri-cli
-        id: verify-cli
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          $tauriPath = "$HOME\.cargo\bin\cargo-tauri.exe"
-          if (Test-Path $tauriPath) {
-            Write-Host "Found cargo-tauri.exe at $tauriPath"
-            cargo tauri --version
-          } else {
-            Write-Host "cargo-tauri.exe not found"
-            exit 1
-          }
-
-      # === 阶段二：编译 tauri-cli（仅首次） ===
-
+      # Tauri CLI 直接 npm 装，11 秒，不用编译
       - name: Install Tauri CLI
-        if: steps.verify-cli.outcome == 'failure'
-        run: cargo install tauri-cli
+        run: npm install -g @tauri-apps/cli
 
-      - name: Upload cargo-tauri.exe to R2
-        if: steps.verify-cli.outcome == 'failure'
-        shell: pwsh
-        run: |
-          $src = "$HOME\.cargo\bin\cargo-tauri.exe"
-          $dst = "cargo-tauri-windows-x64.exe"
-          Copy-Item $src $dst
-          node upload-r2.js $dst tauri-cli/cargo-tauri-windows-x64.exe
-          Remove-Item $dst
+      # 前端打包成静态文件（out/ 目录）
+      - name: Build Frontend
+        run: npx next build
 
-      - name: Cache save cargo-tauri.exe
-        if: steps.verify-cli.outcome == 'failure'
-        uses: actions/cache/save@v4
-        with:
-          key: tauri-cli-${{ runner.os }}-${{ runner.arch }}
-          path: C:\Users\runneradmin\.cargo\bin\cargo-tauri.exe
+      # 编译 Tauri Windows exe
+      - name: Build Tauri
+        run: npx tauri build
 
-      # === 阶段三：构建 Tauri 应用 ===
-
-      - name: Build Tauri (release)
-        run: cargo tauri build
-
-      # === 阶段四：上传产物 ===
-
+      # 上传 NSIS 安装包到 GitHub Artifacts
       - name: Upload installer to GitHub Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -130,6 +67,7 @@ jobs:
           path: src-tauri/target/release/bundle/nsis/*.exe
           retention-days: 30
 
+      # 上传 exe 到 R2（直链下载）
       - name: Upload exe to R2
         shell: pwsh
         run: |
