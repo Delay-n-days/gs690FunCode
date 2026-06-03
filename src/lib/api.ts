@@ -11,7 +11,7 @@ import { useLogStore } from '@/store';
 
 /// 判断是否在 Tauri 环境中运行
 function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
+  return typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window);
 }
 
 /// 写入日志到日志组件（用户可在 UI 里复制）
