@@ -64,8 +64,9 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
-          node upload-r2.js --check tauri-cli/cargo-tauri-windows-x64.exe
-          Invoke-WebRequest -Uri "https://pub-634661256d2a40a5a022b824d51bf62d.r2.dev/tauri-cli/cargo-tauri-windows-x64.exe" -OutFile "$HOME\.cargo\bin\cargo-tauri.exe"
+          $url = "https://pub-634661256d2a40a5a022b824d51bf62d.r2.dev/tauri-cli/cargo-tauri-windows-x64.exe"
+          $out = "$HOME\.cargo\bin\cargo-tauri.exe"
+          Invoke-WebRequest -Uri $url -OutFile $out -ErrorAction Stop
           Write-Host "Downloaded cargo-tauri.exe from R2"
 
       - name: Cache restore cargo-tauri.exe
