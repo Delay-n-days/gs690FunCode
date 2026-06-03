@@ -33,7 +33,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      # Rust 依赖缓存（编译项目本身）
+      # Rust 依赖缓存
       - name: Rust 编译缓存
         uses: actions/cache@v4
         with:
@@ -44,37 +44,33 @@ jobs:
           key: rust-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: rust-${{ runner.os }}-
 
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install frontend dependencies
         run: npm ci
 
-      # Tauri CLI 直接 npm 装，11 秒，不用编译
+      - name: Install R2 upload tool
+        run: npm install @aws-sdk/client-s3
+
       - name: Install Tauri CLI
         run: npm install -g @tauri-apps/cli
 
-      # 前端打包成静态文件（out/ 目录）
-      - name: Build Frontend
-        run: npx next build
+      - name: Build frontend
+        run: npm run build
 
-      # 编译 Tauri Windows exe
-      - name: Build Tauri
-        run: npx tauri build
+      - name: Build Tauri app
+        run: tauri build
 
-      # 上传 NSIS 安装包到 GitHub Artifacts
-      - name: Upload installer to GitHub Artifacts
+      # 上传 exe 到 GitHub Artifacts
+      - name: Upload exe to GitHub Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: gs690-setup
-          path: src-tauri/target/release/bundle/nsis/*.exe
-          retention-days: 30
+          name: gs690-funcode-terminal
+          path: src-tauri/target/release/gs690-funcode-terminal.exe
 
-      # 上传 exe 到 R2（直链下载）
+      # 上传 exe 到 R2
       - name: Upload exe to R2
-        shell: pwsh
-        run: |
-          $exe = (Get-ChildItem "src-tauri\target\release\bundle\nsis\*.exe" | Select-Object -First 1).FullName
-          if ($exe) {
-            node upload-r2.js $exe tauri-builds/gs690-funcode.exe
-          } else {
-            Write-Error "No .exe found in NSIS bundle"
-            exit 1
-          }
+        run: node .github/scripts/upload-r2.js src-tauri/target/release/gs690-funcode-terminal.exe tauri-builds/gs690-funcode-terminal.exe
