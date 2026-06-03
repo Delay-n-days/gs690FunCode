@@ -160,13 +160,16 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
       if (data.connected && !wasConnected) {
         toast.success(`串口已连接: ${data.port}`);
         set({ statusMsg: '已连接 · GS690' });
+        addLog('info', `串口已连接: ${data.port} 波特率: ${data.baudrate}`);
       } else if (!data.connected && wasConnected) {
         toast.error('串口已断开，请重新连接');
         set({ statusMsg: '已断开' });
-        // 自动搜索串口
+        addLog('err', '串口已断开，请重新连接');
         get().searchPorts();
       }
-    } catch {
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      addLog('err', `状态检查失败: ${msg}`);
       if (get().connected) {
         toast.error('串口连接异常，请检查设备');
         set({ connected: false, statusMsg: '已断开' });
@@ -176,14 +179,18 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
 
   connect: async (port, baudrate) => {
     set({ connecting: true });
+    addLog('info', `尝试连接串口: ${port} 波特率: ${baudrate}`);
     try {
       await apiConnect(port, baudrate);
       set({ connected: true, selectedPort: port, selectedBaudrate: baudrate });
       saveToStorage(STORAGE_KEYS.SERIAL_PREFS, { port, baudrate });
       toast.success(`串口连接成功: ${port}`);
       set({ statusMsg: '已连接 · GS690' });
+      addLog('info', `串口连接成功: ${port} 波特率: ${baudrate}`);
     } catch (e: unknown) {
-      toast.error(`连接失败: ${e instanceof Error ? e.message : '未知错误'}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      addLog('err', `串口连接失败: ${msg}`);
+      toast.error(`连接失败: ${msg}`);
       throw e;
     } finally {
       set({ connecting: false });
@@ -191,23 +198,35 @@ export const useConnectionStore = create<ConnectionState>((set, get) => ({
   },
 
   disconnect: async () => {
+    const port = get().selectedPort;
+    addLog('info', `断开串口: ${port || '未连接'}`);
     try {
       await apiDisconnect();
     } catch { /* 忽略断开错误 */ }
     set({ connected: false, statusMsg: '已断开' });
     toast.info('串口已断开');
+    addLog('info', '串口已断开');
   },
 
   searchPorts: async () => {
     set({ searching: true });
+    addLog('info', '搜索串口设备...');
     try {
       const ports = await apiSearchPorts();
       set({ ports });
+      addLog('info', `搜索完成: 找到 ${ports.length} 个串口`);
+      if (ports.length === 0) {
+        addLog('err', '未找到任何串口设备，请检查连接');
+      } else {
+        ports.forEach(p => addLog('info', `  ${p.device} - ${p.description}`));
+      }
       if (ports.length > 0 && !get().selectedPort) {
         set({ selectedPort: ports[0].device });
       }
     } catch (e: unknown) {
-      toast.error(`搜索串口失败: ${e instanceof Error ? e.message : '未知错误'}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      addLog('err', `搜索串口失败: ${msg}`);
+      toast.error(`搜索串口失败: ${msg}`);
     } finally {
       set({ searching: false });
     }
