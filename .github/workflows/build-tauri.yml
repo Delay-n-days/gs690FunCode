@@ -56,11 +56,12 @@ jobs:
         run: npm install @aws-sdk/client-s3 @aws-sdk/lib-storage
 
       - name: Test R2 connectivity
+        shell: bash
         run: |
           node -e "
             const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-            const client = new S3Client({ region: 'auto', endpoint: 'https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com', credentials: { accessKeyId: process.env.R2_ACCESS_KEY_ID, secretAccessKey: process.env.R2_SECRET_ACCESS_KEY } });
-            client.send(new PutObjectCommand({ Bucket: 'hucos', Key: 'test-r2.txt', Body: 'ok', ContentType: 'text/plain' })).then(() => console.log('R2 upload test: OK'));
+            const client = new S3Client({ region: 'auto', endpoint: 'https://' + process.env.R2_ACCOUNT_ID + '.r2.cloudflarestorage.com', credentials: { accessKeyId: process.env.R2_ACCESS_KEY_ID, secretAccessKey: process.env.R2_SECRET_ACCESS_KEY } });
+            client.send(new PutObjectCommand({ Bucket: process.env.R2_BUCKET, Key: 'test-r2.txt', Body: 'ok', ContentType: 'text/plain' })).then(() => console.log('R2 upload test: OK'));
           "
 
       - name: Install Tauri CLI
