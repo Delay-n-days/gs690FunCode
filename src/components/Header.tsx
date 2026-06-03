@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Upload, PanelRightOpen, PanelRightClose, ChevronDown, ChevronUp } from "lucide-react"
+import { Upload, PanelRightOpen, PanelRightClose, ChevronDown, ChevronUp, Sun, Moon } from "lucide-react"
 
 export default function Header({ theme }: { theme: { themeIcon: string; toggleTheme: () => void } }) {
   const ref = useRef<HTMLInputElement>(null)
@@ -54,7 +54,7 @@ export default function Header({ theme }: { theme: { themeIcon: string; toggleTh
           <Upload data-icon="inline-start" /> 导入
           <input ref={ref} type="file" accept=".json,.xlsx,.xls" onChange={handleImport} className="hidden" />
         </label>
-        <Button variant="ghost" size="sm" onClick={theme.toggleTheme}>{mounted ? theme.themeIcon : "☀"}</Button>
+        <Button variant="ghost" size="sm" onClick={theme.toggleTheme}>{mounted && theme.themeIcon === "☀" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}</Button>
         <Button variant="default" size="sm" onClick={() => connected ? disconnect() : setDialogVisible(true)}>
           {connected ? "断开" : "连接"}
         </Button>

@@ -32,7 +32,7 @@ export default function ConnectDialog() {
           <div className="flex flex-col gap-2">
             <Label>COM 口</Label>
             <div className="flex gap-2">
-              <Select value={selectedPort} onValueChange={v => useConnectionStore.setState({ selectedPort: v })}>
+              <Select value={selectedPort} onValueChange={v => useConnectionStore.setState({ selectedPort: v ?? '' })}>
                 <SelectTrigger className="flex-1"><SelectValue placeholder="选择串口" /></SelectTrigger>
                 <SelectContent>
                   {ports.map(p => <SelectItem key={p.device} value={p.device}>{p.device} - {p.description}</SelectItem>)}

@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { X } from "lucide-react"
 
 export default function BottomPanel() {
   const visible = useUIStore(s => s.monitorPanelVisible)
@@ -18,7 +19,7 @@ export default function BottomPanel() {
 
   return (
     <div className="flex flex-col overflow-hidden border-t border-border" style={{ flex: mounted ? `0 0 ${100 - mainFlex}%` : '0 0 40%' }}>
-      <Tabs value={bottomTab} onValueChange={v => setBottomTab(v as typeof bottomTab)}>
+      <Tabs value={bottomTab} onValueChange={v => setBottomTab(v as typeof bottomTab)} className="flex flex-col h-full">
         <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
           <TabsList>
             <TabsTrigger value="monitor">监视窗口</TabsTrigger>
@@ -28,8 +29,8 @@ export default function BottomPanel() {
           <div className="flex-1" />
           <TabActions />
         </div>
-        <TabsContent value="monitor"><MonitorTab /></TabsContent>
-        <TabsContent value="history"><HistoryTab /></TabsContent>
+        <TabsContent value="monitor" className="flex-1 overflow-hidden mt-0"><MonitorTab /></TabsContent>
+        <TabsContent value="history" className="flex-1 overflow-hidden mt-0"><HistoryTab /></TabsContent>
       </Tabs>
     </div>
   )
@@ -75,7 +76,7 @@ function MonitorTab() {
         <TableBody>
           {items.map((item, i) => (
             <TableRow key={item.function_code} className="cursor-pointer" onDoubleClick={() => readSingle(item)}>
-              <TableCell><Button variant="ghost" size="sm" onClick={() => removeFromWatch(i)}>✕</Button></TableCell>
+              <TableCell><Button variant="ghost" size="sm" onClick={() => removeFromWatch(i)}><X className="w-4 h-4" /></Button></TableCell>
               <TableCell className="font-mono text-primary">{item.function_code}</TableCell>
               <TableCell>{item.comment}</TableCell>
               <TableCell><span className={`font-mono ${getValueClass(item)}`}>{getDisplayValue(item)}</span></TableCell>
@@ -107,7 +108,7 @@ function HistoryTab() {
         <TableBody>
           {items.map((item, i) => (
             <TableRow key={i}>
-              <TableCell><Button variant="ghost" size="sm" onClick={() => removeItem(i)}>✕</Button></TableCell>
+              <TableCell><Button variant="ghost" size="sm" onClick={() => removeItem(i)}><X className="w-4 h-4" /></Button></TableCell>
               <TableCell className="font-mono text-primary">{item.function_code}</TableCell>
               <TableCell>{item.comment}</TableCell>
               <TableCell className="font-mono text-destructive">{item.oldValue}</TableCell>
