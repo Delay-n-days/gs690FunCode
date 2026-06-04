@@ -176,7 +176,7 @@ function FuncCodeRow({ fc }: { fc: FuncCodeRuntime }) {
   const writable = isWritable(fc)
   const pendingVal = pendingWrites[fc.function_code] || ""
 
-  const badgeVariant = fc.wr_attribute === "△" ? "default" : fc.wr_attribute === "×" ? "destructive" : "secondary"
+  const badgeVariant = "secondary"
 
   return (
     <TableRow
