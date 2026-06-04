@@ -15,6 +15,7 @@ use crate::serial::{SerialState, list_ports};
 pub type AppState = Mutex<SerialState>;
 
 /// 前端传入的连接参数
+#[allow(dead_code)]
 #[derive(serde::Deserialize, Debug)]
 pub struct ConnectParams {
     pub port: String,
