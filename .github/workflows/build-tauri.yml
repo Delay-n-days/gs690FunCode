@@ -21,22 +21,13 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Cache Rust toolchain
-        uses: actions/cache/restore@v4
-        id: cache-rustup
-        with:
-          path: ~/.rustup
-          key: rustup-${{ runner.os }}-stable
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Save Rust toolchain cache
-        if: always() && steps.cache-rustup.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          path: ~/.rustup
-          key: rustup-${{ runner.os }}-stable
+          workspaces: ./src-tauri -> target
 
       - name: Install protoc
         uses: arduino/setup-protoc@v3
@@ -44,42 +35,23 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           cache: true
 
-      - name: Restore Rust cache
-        uses: actions/cache/restore@v4
-        id: cache-rust
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: build-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ hashFiles('src-tauri/src/**') }}
-          restore-keys: |
-            build-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-
-            build-tauri-${{ runner.os }}-
-
       - name: Cache node_modules
-        uses: actions/cache/restore@v4
-        id: cache-node
-        with:
-          path: node_modules
-          key: node-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-
-      - name: Install frontend dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Save node_modules cache
-        if: always() && steps.cache-node.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
+        uses: actions/cache@v4
         with:
           path: node_modules
           key: node-${{ runner.os }}-${{ hashFiles('bun.lock') }}
 
       - name: Cache Next.js build
-        uses: actions/cache/restore@v4
-        id: cache-next
+        uses: actions/cache@v4
         with:
           path: .next/cache
-          key: next-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          key: next-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            next-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
+            next-${{ runner.os }}-
+
+      - name: Install frontend dependencies
+        run: bun install --frozen-lockfile
 
       - name: Install Tauri CLI
         run: bun add -g @tauri-apps/cli
@@ -87,26 +59,9 @@ jobs:
       - name: Build Tauri app
         run: tauri build
 
-      - name: Save Next.js build cache
-        if: always() && steps.cache-next.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: .next/cache
-          key: next-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-
       - name: Upload exe to GitHub Artifacts
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: gs690-funcode-tauri-windows
+          name: gs690-funcode-terminal
           path: src-tauri/target/release/gs690-fun-code.exe
-
-      - name: Save Rust cache
-        if: always() && steps.cache-rust.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: build-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ hashFiles('src-tauri/src/**') }}
