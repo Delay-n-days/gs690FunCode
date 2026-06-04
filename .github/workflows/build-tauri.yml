@@ -28,8 +28,22 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Cache Rust toolchain
+        uses: actions/cache/restore@v4
+        id: cache-rustup
+        with:
+          path: ~/.rustup
+          key: rustup-${{ runner.os }}-stable
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Save Rust toolchain cache
+        if: always() && steps.cache-rustup.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.rustup
+          key: rustup-${{ runner.os }}-stable
 
       - name: Install protoc
         uses: arduino/setup-protoc@v3
