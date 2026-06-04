@@ -14,13 +14,6 @@ jobs:
   build-windows:
     runs-on: windows-latest
 
-    env:
-      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      R2_BUCKET: ${{ secrets.R2_BUCKET }}
-      R2_CUSTOM_DOMAIN: "pub-634661256d2a40a5a022b824d51bf62d.r2.dev"
-
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -53,13 +46,16 @@ jobs:
 
       - name: Restore Rust cache
         uses: actions/cache/restore@v4
+        id: cache-rust
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             src-tauri/target
-          key: build-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: build-tauri-${{ runner.os }}-
+          key: build-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ hashFiles('src-tauri/src/**') }}
+          restore-keys: |
+            build-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-
+            build-tauri-${{ runner.os }}-
 
       - name: Cache node_modules
         uses: actions/cache/restore@v4
@@ -111,11 +107,11 @@ jobs:
           path: src-tauri/target/release/gs690-fun-code.exe
 
       - name: Save Rust cache
-        if: always()
+        if: always() && steps.cache-rust.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             src-tauri/target
-          key: build-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          key: build-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ hashFiles('src-tauri/src/**') }}
