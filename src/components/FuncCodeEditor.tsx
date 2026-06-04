@@ -1,10 +1,10 @@
 "use client"
 /**
- * FuncCodeEditor — 功能码编辑器
- * 普通模式：只能修改出厂值（带验证）
- * 高级模式：增删查改，可修改任何项
+ * FuncCodeEditor — 功能码编辑器 v2
+ * 普通模式：双击出厂值直接编辑（带验证）
+ * 高级模式：双击行打开对话框，可修改除功能码和分组外的所有项
  */
-import { useState, useMemo, useCallback, useRef } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useFuncodeStore } from "@/store"
 import type { FuncCode, FuncCodeRuntime } from "@/lib/types"
@@ -20,11 +20,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "sonner"
 import {
   ArrowLeft, Plus, Trash2, Copy, Download, Search, Filter,
-  Edit, Check, X, Clipboard, ChevronDown, AlertCircle, Save
+  Edit, Check, X, Clipboard, AlertCircle, Save
 } from "lucide-react"
 
-/** 验证器：根据 factor 验证出厂值格式 */
-function validateFactoryValue(value: string, factor: string): { valid: boolean; error?: string } {
+/** 获取精度对应的小数位数 */
+function getDecimalPlaces(factor: string): number {
+  const f = parseFloat(factor) || 1
+  return f === 1 ? 0 : f === 0.1 ? 1 : f === 0.01 ? 2 : f === 0.001 ? 3 : 4
+}
+
+/** 验证出厂值 */
+function validateFactoryValue(value: string, factor: string, lowerLimit: string, upperLimit: string): { valid: boolean; error?: string } {
   if (!value || value.trim() === "") {
     return { valid: false, error: "出厂值不能为空" }
   }
@@ -34,22 +40,24 @@ function validateFactoryValue(value: string, factor: string): { valid: boolean; 
     return { valid: false, error: "必须是有效数字" }
   }
   
-  const f = parseFloat(factor) || 1
-  const d = f === 1 ? 0 : f === 0.1 ? 1 : f === 0.01 ? 2 : f === 0.001 ? 3 : 4
-  
   // 检查小数位数
+  const d = getDecimalPlaces(factor)
   const parts = value.split(".")
   if (parts.length > 1 && parts[1].length > d) {
     return { valid: false, error: `小数位数不能超过 ${d} 位` }
   }
   
+  // 检查范围
+  const lo = parseFloat(lowerLimit)
+  const hi = parseFloat(upperLimit)
+  if (!isNaN(lo) && num < lo) {
+    return { valid: false, error: `不能小于 ${lowerLimit}` }
+  }
+  if (!isNaN(hi) && num > hi) {
+    return { valid: false, error: `不能大于 ${upperLimit}` }
+  }
+  
   return { valid: true }
-}
-
-/** 获取精度对应的小数位数 */
-function getDecimalPlaces(factor: string): number {
-  const f = parseFloat(factor) || 1
-  return f === 1 ? 0 : f === 0.1 ? 1 : f === 0.01 ? 2 : f === 0.001 ? 3 : 4
 }
 
 /** 读写属性选项 */
@@ -82,14 +90,24 @@ export default function FuncCodeEditor() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [addGroupDialogOpen, setAddGroupDialogOpen] = useState(false)
-  const [editingFc, setEditingFc] = useState<FuncCode | null>(null)
   const [editingIndex, setEditingIndex] = useState(-1)
   const [clipboard, setClipboard] = useState<FuncCode[]>([])
   const [clipboardSourceGroup, setClipboardSourceGroup] = useState("")
   
-  // 表单状态
+  // 表格内编辑状态
+  const [editingCell, setEditingCell] = useState<{
+    index: number;
+    value: string;
+  } | null>(null)
+  const [cellError, setCellError] = useState<string | null>(null)
+  const [savedRows, setSavedRows] = useState<Set<number>>(new Set())
+  const [failedRows, setFailedRows] = useState<Set<number>>(new Set())
+  
+  // 表单状态（对话框用）
   const [formData, setFormData] = useState<Partial<FuncCode>>({})
   const [formErrors, setFormErrors] = useState<Record<string, string>>({})
+  
+  const inputRef = useRef<HTMLInputElement>(null)
   
   // 获取所有分组
   const groups = useMemo(() => [...new Set(funcodes.map(f => f.group).filter(Boolean))], [funcodes])
@@ -114,18 +132,86 @@ export default function FuncCodeEditor() {
     setFormErrors({})
   }, [])
 
-  // 打开编辑对话框
-  const handleEdit = useCallback((fc: FuncCode, index: number) => {
-    setEditingFc(fc)
+  // 开始编辑单元格
+  const handleCellEdit = useCallback((index: number, value: string) => {
+    if (mode !== "normal") return
+    setEditingCell({ index, value })
+    setCellError(null)
+    setTimeout(() => inputRef.current?.focus(), 0)
+  }, [mode])
+
+  // 保存单元格编辑
+  const handleCellSave = useCallback(() => {
+    if (!editingCell) return
+    
+    const fc = funcodes[editingCell.index]
+    const result = validateFactoryValue(
+      editingCell.value,
+      fc.factor,
+      fc.lower_limit,
+      fc.upper_limit
+    )
+    
+    if (!result.valid) {
+      setCellError(result.error || "验证失败")
+      return
+    }
+    
+    // 保存
+    const newFuncodes = [...funcodes]
+    newFuncodes[editingCell.index] = {
+      ...fc,
+      factory_value: editingCell.value,
+      _value: fc._value,
+      _pending: fc._pending,
+      _error: fc._error,
+    }
+    
+    replaceFuncodes(newFuncodes)
+    setEditingCell(null)
+    setCellError(null)
+    
+    // 显示保存成功
+    setSavedRows(prev => new Set(prev).add(editingCell.index))
+    setTimeout(() => {
+      setSavedRows(prev => {
+        const next = new Set(prev)
+        next.delete(editingCell.index)
+        return next
+      })
+    }, 500)
+    
+    toast.success(`${fc.function_code} 出厂值已更新`)
+  }, [editingCell, funcodes, replaceFuncodes])
+
+  // 取消单元格编辑
+  const handleCellCancel = useCallback(() => {
+    setEditingCell(null)
+    setCellError(null)
+  }, [])
+
+  // 按键处理
+  const handleCellKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      handleCellSave()
+    } else if (e.key === "Escape") {
+      e.preventDefault()
+      handleCellCancel()
+    }
+  }, [handleCellSave, handleCellCancel])
+
+  // 打开高级编辑对话框
+  const handleAdvancedEdit = useCallback((fc: FuncCode, index: number) => {
+    if (mode !== "advanced") return
     setEditingIndex(index)
     setFormData({ ...fc })
     setFormErrors({})
     setEditDialogOpen(true)
-  }, [])
+  }, [mode])
 
   // 打开新增对话框
   const handleAdd = useCallback((group?: string) => {
-    setEditingFc(null)
     setEditingIndex(-1)
     setFormData({
       group: group || (groups.length > 0 ? groups[0] : ""),
@@ -155,7 +241,7 @@ export default function FuncCodeEditor() {
       errors.function_code = "功能码不能为空"
     } else if (!isEdit && funcodes.some(fc => fc.function_code === data.function_code)) {
       errors.function_code = "功能码已存在"
-    } else if (isEdit && editingFc && data.function_code !== editingFc.function_code && funcodes.some(fc => fc.function_code === data.function_code)) {
+    } else if (isEdit && editingIndex >= 0 && data.function_code !== funcodes[editingIndex].function_code && funcodes.some(fc => fc.function_code === data.function_code)) {
       errors.function_code = "功能码已存在"
     }
     
@@ -173,17 +259,22 @@ export default function FuncCodeEditor() {
     
     // 验证出厂值
     if (data.factory_value !== undefined) {
-      const result = validateFactoryValue(data.factory_value, data.factor || "1")
+      const result = validateFactoryValue(
+        data.factory_value,
+        data.factor || "1",
+        data.lower_limit || "0",
+        data.upper_limit || "65535"
+      )
       if (!result.valid && result.error) {
         errors.factory_value = result.error
       }
     }
     
     return errors
-  }, [funcodes, editingFc])
+  }, [funcodes, editingIndex])
 
-  // 保存编辑
-  const handleSaveEdit = useCallback(() => {
+  // 保存对话框编辑
+  const handleSaveDialog = useCallback(() => {
     const errors = validateForm(formData, editingIndex >= 0)
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors)
@@ -192,7 +283,6 @@ export default function FuncCodeEditor() {
     
     const newFuncodes = [...funcodes]
     if (editingIndex >= 0) {
-      // 保留运行时状态
       const existingFc = newFuncodes[editingIndex]
       newFuncodes[editingIndex] = {
         ...formData,
@@ -227,13 +317,12 @@ export default function FuncCodeEditor() {
     toast.success(`已复制分组 "${group}" 的 ${groupFuncodes.length} 个功能码`)
   }, [funcodes])
 
-  // 粘贴分组（组号递增）
+  // 粘贴分组
   const handlePasteGroup = useCallback(() => {
     if (clipboard.length === 0) {
       toast.error("剪贴板为空，请先复制一个分组")
       return
     }
-    
     setAddGroupDialogOpen(true)
   }, [clipboard])
 
@@ -244,13 +333,11 @@ export default function FuncCodeEditor() {
       return
     }
     
-    // 检查分组名是否已存在
     if (groups.includes(newGroupName)) {
       toast.error("分组名已存在")
       return
     }
     
-    // 复制功能码并更新组名
     const newFuncodes = clipboard.map(fc => ({
       ...fc,
       group: newGroupName,
@@ -264,7 +351,6 @@ export default function FuncCodeEditor() {
 
   // 导出 JSON
   const handleExport = useCallback(() => {
-    // 去除运行时状态字段
     const exportData = funcodes.map(({ _value, _pending, _error, ...fc }) => fc)
     const json = JSON.stringify(exportData, null, 2)
     const blob = new Blob([json], { type: "application/json" })
@@ -290,7 +376,6 @@ export default function FuncCodeEditor() {
           throw new Error("JSON 应为数组")
         }
         
-        // 验证必要字段
         const requiredFields = ["function_code", "address_str", "group"]
         const isValid = data.every(item => requiredFields.every(f => f in item))
         if (!isValid) {
@@ -307,6 +392,14 @@ export default function FuncCodeEditor() {
     e.target.value = ""
   }, [replaceFuncodes])
 
+  // 获取行样式
+  const getRowClassName = useCallback((index: number) => {
+    if (editingCell?.index === index) return "bg-blue-50 dark:bg-blue-950/30"
+    if (savedRows.has(index)) return "bg-green-50 dark:bg-green-950/30"
+    if (failedRows.has(index)) return "bg-red-50 dark:bg-red-950/30"
+    return "cursor-pointer table-row-hover"
+  }, [editingCell, savedRows, failedRows])
+
   return (
     <div className="flex flex-col h-screen bg-background">
       {/* 顶部导航栏 */}
@@ -321,7 +414,9 @@ export default function FuncCodeEditor() {
           </div>
           <div>
             <h1 className="text-sm font-bold tracking-tight leading-none">功能码编辑器</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">编辑功能码表配置</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {mode === "normal" ? "双击出厂值列直接编辑" : "双击行打开编辑对话框"}
+            </p>
           </div>
         </div>
         <div className="flex-1" />
@@ -435,23 +530,35 @@ export default function FuncCodeEditor() {
                 <TableRow className="border-b border-border">
                   <TableHead className="w-12">属性</TableHead>
                   <TableHead className="w-20">功能码</TableHead>
+                  <TableHead className="w-24">分组</TableHead>
                   <TableHead>注释</TableHead>
-                  <TableHead className="w-20">出厂值</TableHead>
-                  <TableHead className="w-16">单位</TableHead>
+                  <TableHead className="w-16">地址</TableHead>
+                  <TableHead className="w-24">出厂值</TableHead>
+                  <TableHead className="w-12">单位</TableHead>
+                  <TableHead className="w-12">精度</TableHead>
                   <TableHead className="w-28">范围</TableHead>
+                  <TableHead className="w-48">选项说明</TableHead>
                   {mode === "advanced" && (
-                    <TableHead className="w-24 text-center">操作</TableHead>
+                    <TableHead className="w-20 text-center">操作</TableHead>
                   )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCodes.map((fc, i) => {
                   const originalIndex = funcodes.findIndex(f => f.function_code === fc.function_code)
+                  const isEditing = editingCell?.index === originalIndex
+                  
                   return (
                     <TableRow
                       key={fc.function_code}
-                      className="cursor-pointer table-row-hover"
-                      onClick={() => mode === "normal" ? handleEdit(fc, originalIndex) : undefined}
+                      className={getRowClassName(originalIndex)}
+                      onDoubleClick={() => {
+                        if (mode === "normal") {
+                          handleCellEdit(originalIndex, fc.factory_value)
+                        } else {
+                          handleAdvancedEdit(fc, originalIndex)
+                        }
+                      }}
                     >
                       <TableCell>
                         <Badge variant="secondary" className="text-xs">
@@ -459,16 +566,47 @@ export default function FuncCodeEditor() {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-primary font-medium">{fc.function_code}</TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{fc.group}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{fc.comment}</TableCell>
-                      <TableCell className="font-mono text-muted-foreground">{fc.factory_value}</TableCell>
-                      <TableCell className="text-muted-foreground">{fc.unit}</TableCell>
+                      <TableCell className="font-mono text-muted-foreground text-sm">{fc.address_str}</TableCell>
+                      <TableCell onDoubleClick={(e) => e.stopPropagation()}>
+                        {isEditing ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              ref={inputRef}
+                              className="h-7 w-24 font-mono input-focus"
+                              value={editingCell.value}
+                              onChange={e => setEditingCell({ ...editingCell, value: e.target.value })}
+                              onKeyDown={handleCellKeyDown}
+                            />
+                            <Button size="sm" className="h-7 w-7 p-0" onClick={handleCellSave}>
+                              <Check className="w-4 h-4" />
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={handleCellCancel}>
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-primary">{fc.factory_value}</span>
+                        )}
+                        {isEditing && cellError && (
+                          <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> {cellError}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-sm">{fc.unit}</TableCell>
+                      <TableCell className="font-mono text-muted-foreground text-sm">{fc.factor}</TableCell>
                       <TableCell className="text-muted-foreground font-mono text-sm">
                         {fc.lower_limit}~{fc.upper_limit}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground truncate max-w-[192px]" title={fc.function_code_option}>
+                        {fc.function_code_option || "—"}
                       </TableCell>
                       {mode === "advanced" && (
                         <TableCell onClick={e => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1">
-                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEdit(fc, originalIndex)}>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleAdvancedEdit(fc, originalIndex)}>
                               <Edit className="w-4 h-4" />
                             </Button>
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => handleDelete(originalIndex)}>
@@ -482,7 +620,7 @@ export default function FuncCodeEditor() {
                 })}
                 {filteredCodes.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={mode === "advanced" ? 7 : 6} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={mode === "advanced" ? 11 : 10} className="text-center py-12 text-muted-foreground">
                       <div className="flex flex-col items-center gap-2">
                         <Search className="w-8 h-8 opacity-50" />
                         <p>无匹配数据</p>
@@ -496,7 +634,7 @@ export default function FuncCodeEditor() {
         </div>
       </main>
 
-      {/* 编辑/新增对话框 */}
+      {/* 高级模式编辑对话框 */}
       <Dialog open={editDialogOpen || addDialogOpen} onOpenChange={(open) => {
         if (!open) {
           setEditDialogOpen(false)
@@ -510,41 +648,24 @@ export default function FuncCodeEditor() {
           </DialogHeader>
           
           <div className="grid grid-cols-3 gap-4 py-4">
-            {/* 功能码 */}
+            {/* 功能码 - 只读 */}
             <div className="flex flex-col gap-2">
-              <Label>功能码 *</Label>
+              <Label>功能码</Label>
               <Input
                 value={formData.function_code || ""}
-                onChange={e => setFormData({ ...formData, function_code: e.target.value })}
-                placeholder="如 A0.00"
-                disabled={mode === "normal"}
-                className={formErrors.function_code ? "border-destructive" : ""}
+                disabled
+                className="bg-muted"
               />
-              {formErrors.function_code && (
-                <p className="text-xs text-destructive flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> {formErrors.function_code}
-                </p>
-              )}
             </div>
             
-            {/* 分组 */}
+            {/* 分组 - 只读 */}
             <div className="flex flex-col gap-2">
-              <Label>分组 *</Label>
-              <Select value={formData.group || ""} onValueChange={v => setFormData({ ...formData, group: v ?? "" })} disabled={mode === "normal"}>
-                <SelectTrigger className={formErrors.group ? "border-destructive" : ""}>
-                  <SelectValue placeholder="选择分组" />
-                </SelectTrigger>
-                <SelectContent>
-                  {groups.map(g => (
-                    <SelectItem key={g} value={g}>{g}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {formErrors.group && (
-                <p className="text-xs text-destructive flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> {formErrors.group}
-                </p>
-              )}
+              <Label>分组</Label>
+              <Input
+                value={formData.group || ""}
+                disabled
+                className="bg-muted"
+              />
             </div>
             
             {/* 地址 */}
@@ -554,7 +675,6 @@ export default function FuncCodeEditor() {
                 value={formData.address_str || ""}
                 onChange={e => setFormData({ ...formData, address_str: e.target.value })}
                 placeholder="如 0"
-                disabled={mode === "normal"}
                 className={formErrors.address_str ? "border-destructive" : ""}
               />
               {formErrors.address_str && (
@@ -571,7 +691,6 @@ export default function FuncCodeEditor() {
                 value={formData.comment || ""}
                 onChange={e => setFormData({ ...formData, comment: e.target.value })}
                 placeholder="功能描述"
-                disabled={mode === "normal"}
                 className={formErrors.comment ? "border-destructive" : ""}
               />
               {formErrors.comment && (
@@ -581,7 +700,7 @@ export default function FuncCodeEditor() {
               )}
             </div>
             
-            {/* 出厂值 - 普通模式下可编辑 */}
+            {/* 出厂值 */}
             <div className="flex flex-col gap-2">
               <Label>出厂值 *</Label>
               <Input
@@ -604,14 +723,13 @@ export default function FuncCodeEditor() {
                 value={formData.unit || ""}
                 onChange={e => setFormData({ ...formData, unit: e.target.value })}
                 placeholder="如 A, V, ℃"
-                disabled={mode === "normal"}
               />
             </div>
             
             {/* 读写属性 */}
             <div className="flex flex-col gap-2">
               <Label>读写属性</Label>
-              <Select value={formData.wr_attribute || "△"} onValueChange={v => setFormData({ ...formData, wr_attribute: v ?? "△" })} disabled={mode === "normal"}>
+              <Select value={formData.wr_attribute || "△"} onValueChange={v => setFormData({ ...formData, wr_attribute: v ?? "△" })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -630,7 +748,6 @@ export default function FuncCodeEditor() {
                 value={formData.factor || ""}
                 onChange={e => setFormData({ ...formData, factor: e.target.value })}
                 placeholder="如 1, 0.1, 0.01"
-                disabled={mode === "normal"}
               />
             </div>
             
@@ -641,7 +758,6 @@ export default function FuncCodeEditor() {
                 value={formData.lower_limit || ""}
                 onChange={e => setFormData({ ...formData, lower_limit: e.target.value })}
                 placeholder="最小值"
-                disabled={mode === "normal"}
               />
             </div>
             
@@ -652,14 +768,13 @@ export default function FuncCodeEditor() {
                 value={formData.upper_limit || ""}
                 onChange={e => setFormData({ ...formData, upper_limit: e.target.value })}
                 placeholder="最大值"
-                disabled={mode === "normal"}
               />
             </div>
             
             {/* 显示格式 */}
             <div className="flex flex-col gap-2">
               <Label>显示格式</Label>
-              <Select value={formData.display_format_u16 || "0"} onValueChange={(v: string | null) => setFormData({ ...formData, display_format_u16: v ?? "0" })} disabled={mode === "normal"}>
+              <Select value={formData.display_format_u16 || "0"} onValueChange={(v: string | null) => setFormData({ ...formData, display_format_u16: v ?? "0" })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -674,7 +789,7 @@ export default function FuncCodeEditor() {
             {/* 数据宽度 */}
             <div className="flex flex-col gap-2">
               <Label>数据宽度</Label>
-              <Select value={formData.data_width || "4"} onValueChange={(v: string | null) => setFormData({ ...formData, data_width: v ?? "4" })} disabled={mode === "normal"}>
+              <Select value={formData.data_width || "4"} onValueChange={(v: string | null) => setFormData({ ...formData, data_width: v ?? "4" })}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -693,8 +808,7 @@ export default function FuncCodeEditor() {
                 value={formData.function_code_option || ""}
                 onChange={e => setFormData({ ...formData, function_code_option: e.target.value })}
                 placeholder="每行一个选项，格式: 值：说明"
-                disabled={mode === "normal"}
-                className="min-h-[80px] px-3 py-2 text-sm border border-border rounded-md resize-none input-focus disabled:opacity-50 disabled:cursor-not-allowed"
+                className="min-h-[80px] px-3 py-2 text-sm border border-border rounded-md resize-none input-focus"
               />
             </div>
           </div>
@@ -703,7 +817,7 @@ export default function FuncCodeEditor() {
             <Button variant="ghost" onClick={() => { setEditDialogOpen(false); setAddDialogOpen(false); resetForm() }}>
               取消
             </Button>
-            <Button onClick={handleSaveEdit}>
+            <Button onClick={handleSaveDialog}>
               <Save className="w-4 h-4 mr-1.5" /> 保存
             </Button>
           </DialogFooter>
