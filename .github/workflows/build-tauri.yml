@@ -32,11 +32,14 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          cache: true
 
       - name: Install protoc
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: true
 
       - name: Restore Rust cache
         uses: actions/cache/restore@v4
@@ -45,50 +48,14 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             src-tauri/target
-          key: rust-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: rust-${{ runner.os }}-
+          key: build-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: build-tauri-${{ runner.os }}-
 
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
 
-      - name: Install R2 upload tools
-        run: bun add @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
-
-      # === R2 连通性测试 ===
-      - name: Test R2 connectivity
-        run: |
-          node -e "
-            const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
-            const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-            (async () => {
-              const client = new S3Client({
-                region: 'auto',
-                endpoint: 'https://' + process.env.R2_ACCOUNT_ID + '.r2.cloudflarestorage.com',
-                credentials: {
-                  accessKeyId: process.env.R2_ACCESS_KEY_ID,
-                  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY
-                }
-              });
-              await client.send(new PutObjectCommand({
-                Bucket: process.env.R2_BUCKET,
-                Key: 'test-r2.txt',
-                Body: 'ok',
-                ContentType: 'text/plain'
-              }));
-              console.log('R2 upload test: OK');
-              const url = await getSignedUrl(client, new GetObjectCommand({
-                Bucket: process.env.R2_BUCKET,
-                Key: 'test-r2.txt'
-              }));
-              console.log('Download URL: ' + url);
-            })();
-          "
-
       - name: Install Tauri CLI
         run: bun add -g @tauri-apps/cli
-
-      - name: Build frontend
-        run: bun run build
 
       - name: Build Tauri app
         run: tauri build
@@ -100,39 +67,6 @@ jobs:
           name: gs690-funcode-terminal
           path: src-tauri/target/release/gs690-fun-code.exe
 
-      # 上传 exe 到 R2（AWS SDK）
-      - name: Upload exe to R2
-        if: success()
-        run: |
-          node -e "
-            const { S3Client, PutObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
-            const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-            const fs = require('fs');
-            (async () => {
-              const client = new S3Client({
-                region: 'auto',
-                endpoint: 'https://' + process.env.R2_ACCOUNT_ID + '.r2.cloudflarestorage.com',
-                credentials: {
-                  accessKeyId: process.env.R2_ACCESS_KEY_ID,
-                  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY
-                }
-              });
-              const key = 'tauri-builds/gs690-funcode-terminal.exe';
-              await client.send(new PutObjectCommand({
-                Bucket: process.env.R2_BUCKET,
-                Key: key,
-                Body: fs.readFileSync('src-tauri/target/release/gs690-fun-code.exe'),
-                ContentType: 'application/vnd.microsoft.portable-executable'
-              }));
-              const url = await getSignedUrl(client, new GetObjectCommand({
-                Bucket: process.env.R2_BUCKET,
-                Key: key
-              }));
-              console.log('Uploaded to R2');
-              console.log('Download URL: ' + url);
-            })();
-          "
-
       - name: Save Rust cache
         if: always()
         uses: actions/cache/save@v4
@@ -141,4 +75,4 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             src-tauri/target
-          key: rust-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          key: build-tauri-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
