@@ -132,10 +132,10 @@ export default function FuncCodeTable({ filteredCodes }: { filteredCodes: FuncCo
                 <TableHead className="w-12">属性</TableHead>
                 <TableHead className="w-20">功能码</TableHead>
                 <TableHead>注释</TableHead>
-                <TableHead className="w-20">出厂值</TableHead>
                 <TableHead className="w-24 text-right">当前值</TableHead>
                 <TableHead className="w-16">单位</TableHead>
                 <TableHead className="w-36">设置值</TableHead>
+                <TableHead className="w-20">出厂值</TableHead>
                 <TableHead className="w-28">范围</TableHead>
                 <TableHead className="w-64">选项说明</TableHead>
               </TableRow>
@@ -202,7 +202,6 @@ function FuncCodeRow({ fc }: { fc: FuncCodeRuntime }) {
       </TableCell>
       <TableCell className="font-mono text-primary font-medium">{fc.function_code}</TableCell>
       <TableCell className="max-w-[200px] truncate">{fc.comment}</TableCell>
-      <TableCell className="font-mono text-muted-foreground">{getDisplayFactoryValue(fc)}</TableCell>
       <TableCell className="text-right">
         <span className="font-mono text-base text-primary font-medium">{getDisplayValue(fc)}</span>
       </TableCell>
@@ -228,6 +227,7 @@ function FuncCodeRow({ fc }: { fc: FuncCodeRuntime }) {
           </div>
         )}
       </TableCell>
+      <TableCell className="font-mono text-muted-foreground">{getDisplayFactoryValue(fc)}</TableCell>
       <TableCell className="text-muted-foreground font-mono text-sm">
         {getDisplayLowerLimit(fc)}~{getDisplayUpperLimit(fc)}
       </TableCell>
