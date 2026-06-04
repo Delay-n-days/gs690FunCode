@@ -9,6 +9,10 @@ const nextConfig: NextConfig = {
    * 所有 API 调用走 Tauri IPC（前端 adapter 层已处理）
    */
   output: 'export',
+  /** GitHub Pages 子路径 */
+  basePath: process.env.GITHUB_ACTIONS ? '/gs690FunCode' : '',
+  /** 确保资源文件正确加载 */
+  assetPrefix: process.env.GITHUB_ACTIONS ? '/gs690FunCode' : '',
 };
 
 export default nextConfig;
