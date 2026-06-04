@@ -54,6 +54,12 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
@@ -92,6 +98,12 @@ jobs:
             src-tauri/target
           key: build-rust-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: build-rust-${{ runner.os }}-
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-${{ runner.os }}-${{ hashFiles('bun.lock') }}
 
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
