@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { X } from "lucide-react"
+import { X, Eye, History, Play, Square, Trash2, ChevronDown, ChevronUp } from "lucide-react"
 
 export default function BottomPanel() {
   const visible = useUIStore(s => s.monitorPanelVisible)
@@ -18,19 +18,33 @@ export default function BottomPanel() {
   if (!visible) return null
 
   return (
-    <div className="flex flex-col overflow-hidden border-t border-border" style={{ flex: mounted ? `0 0 ${100 - mainFlex}%` : '0 0 40%' }}>
+    <div className="flex flex-col overflow-hidden border-t border-border bg-card/50 backdrop-blur-sm" style={{ flex: mounted ? `0 0 ${100 - mainFlex}%` : '0 0 40%' }}>
       <Tabs value={bottomTab} onValueChange={v => setBottomTab(v as typeof bottomTab)} className="flex flex-col h-full">
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-border">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
           <TabsList>
-            <TabsTrigger value="monitor">监视窗口</TabsTrigger>
-            <TabsTrigger value="history">修改历史</TabsTrigger>
+            <TabsTrigger value="monitor" className="gap-1.5">
+              <Eye className="w-4 h-4" />
+              监视窗口
+            </TabsTrigger>
+            <TabsTrigger value="history" className="gap-1.5">
+              <History className="w-4 h-4" />
+              修改历史
+            </TabsTrigger>
           </TabsList>
-          {bottomTab === "monitor" && <span className="text-sm text-muted-foreground">{useMonitorStore.getState().items.length}/20</span>}
+          {bottomTab === "monitor" && (
+            <span className="text-sm text-muted-foreground">
+              {useMonitorStore.getState().items.length}/20
+            </span>
+          )}
           <div className="flex-1" />
           <TabActions />
         </div>
-        <TabsContent value="monitor" className="flex-1 overflow-hidden mt-0"><MonitorTab /></TabsContent>
-        <TabsContent value="history" className="flex-1 overflow-hidden mt-0"><HistoryTab /></TabsContent>
+        <TabsContent value="monitor" className="flex-1 overflow-hidden mt-0">
+          <MonitorTab />
+        </TabsContent>
+        <TabsContent value="history" className="flex-1 overflow-hidden mt-0">
+          <HistoryTab />
+        </TabsContent>
       </Tabs>
     </div>
   )
@@ -46,14 +60,26 @@ function TabActions() {
   const clearHistory = useHistoryStore(s => s.clearHistory)
   const toggleMonitorPanel = useUIStore(s => s.toggleMonitorPanel)
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       {tab === "monitor" && <>
-        <Button size="sm" disabled={!connected || monitoring} onClick={startMonitor}>开始</Button>
-        <Button variant="destructive" size="sm" disabled={!monitoring} onClick={stopMonitor}>停止</Button>
-        <Button variant="ghost" size="sm" onClick={clearWatch}>清空</Button>
+        <Button size="sm" disabled={!connected || monitoring} onClick={startMonitor} className="gap-1.5">
+          <Play className="w-4 h-4" /> 开始
+        </Button>
+        <Button variant="destructive" size="sm" disabled={!monitoring} onClick={stopMonitor} className="gap-1.5">
+          <Square className="w-4 h-4" /> 停止
+        </Button>
+        <Button variant="ghost" size="sm" onClick={clearWatch} className="gap-1.5">
+          <Trash2 className="w-4 h-4" /> 清空
+        </Button>
       </>}
-      {tab === "history" && <Button variant="ghost" size="sm" onClick={clearHistory}>清空</Button>}
-      <Button variant="ghost" size="sm" onClick={toggleMonitorPanel}>隐藏</Button>
+      {tab === "history" && (
+        <Button variant="ghost" size="sm" onClick={clearHistory} className="gap-1.5">
+          <Trash2 className="w-4 h-4" /> 清空
+        </Button>
+      )}
+      <Button variant="ghost" size="sm" onClick={toggleMonitorPanel} className="gap-1.5">
+        <ChevronDown className="w-4 h-4" /> 隐藏
+      </Button>
     </div>
   )
 }
@@ -65,8 +91,8 @@ function MonitorTab() {
   return (
     <div className="h-full overflow-auto">
       <Table>
-        <TableHeader className="sticky top-0 bg-background z-10">
-          <TableRow>
+        <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+          <TableRow className="border-b border-border">
             <TableHead className="w-8"></TableHead>
             <TableHead>功能码</TableHead>
             <TableHead>注释</TableHead>
@@ -75,14 +101,29 @@ function MonitorTab() {
         </TableHeader>
         <TableBody>
           {items.map((item, i) => (
-            <TableRow key={item.function_code} className="cursor-pointer" onDoubleClick={() => readSingle(item)}>
-              <TableCell><Button variant="ghost" size="sm" onClick={() => removeFromWatch(i)}><X className="w-4 h-4" /></Button></TableCell>
-              <TableCell className="font-mono text-primary">{item.function_code}</TableCell>
+            <TableRow key={item.function_code} className="cursor-pointer table-row-hover" onDoubleClick={() => readSingle(item)}>
+              <TableCell>
+                <Button variant="ghost" size="sm" onClick={() => removeFromWatch(i)} className="w-8 h-8 p-0">
+                  <X className="w-4 h-4" />
+                </Button>
+              </TableCell>
+              <TableCell className="font-mono text-primary font-medium">{item.function_code}</TableCell>
               <TableCell>{item.comment}</TableCell>
-              <TableCell><span className={`font-mono ${getValueClass(item)}`}>{getDisplayValue(item)}</span></TableCell>
+              <TableCell>
+                <span className={`font-mono ${getValueClass(item)}`}>{getDisplayValue(item)}</span>
+              </TableCell>
             </TableRow>
           ))}
-          {items.length === 0 && <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">右键点击功能码添加到监视窗口</TableCell></TableRow>}
+          {items.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={4} className="text-center py-12 text-muted-foreground">
+                <div className="flex flex-col items-center gap-2">
+                  <Eye className="w-8 h-8 opacity-50" />
+                  <p>右键点击功能码添加到监视窗口</p>
+                </div>
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </div>
@@ -95,8 +136,8 @@ function HistoryTab() {
   return (
     <div className="h-full overflow-auto">
       <Table>
-        <TableHeader className="sticky top-0 bg-background z-10">
-          <TableRow>
+        <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+          <TableRow className="border-b border-border">
             <TableHead className="w-8"></TableHead>
             <TableHead>功能码</TableHead>
             <TableHead>注释</TableHead>
@@ -107,16 +148,29 @@ function HistoryTab() {
         </TableHeader>
         <TableBody>
           {items.map((item, i) => (
-            <TableRow key={i}>
-              <TableCell><Button variant="ghost" size="sm" onClick={() => removeItem(i)}><X className="w-4 h-4" /></Button></TableCell>
-              <TableCell className="font-mono text-primary">{item.function_code}</TableCell>
+            <TableRow key={i} className="table-row-hover">
+              <TableCell>
+                <Button variant="ghost" size="sm" onClick={() => removeItem(i)} className="w-8 h-8 p-0">
+                  <X className="w-4 h-4" />
+                </Button>
+              </TableCell>
+              <TableCell className="font-mono text-primary font-medium">{item.function_code}</TableCell>
               <TableCell>{item.comment}</TableCell>
               <TableCell className="font-mono text-destructive">{item.oldValue}</TableCell>
-              <TableCell className="font-mono text-green-600">{item.newValue}</TableCell>
+              <TableCell className="font-mono text-green-600 dark:text-green-400">{item.newValue}</TableCell>
               <TableCell className="text-muted-foreground">{item.time}</TableCell>
             </TableRow>
           ))}
-          {items.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">暂无修改记录</TableCell></TableRow>}
+          {items.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                <div className="flex flex-col items-center gap-2">
+                  <History className="w-8 h-8 opacity-50" />
+                  <p>暂无修改记录</p>
+                </div>
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
       </Table>
     </div>

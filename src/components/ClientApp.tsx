@@ -61,7 +61,14 @@ export default function ClientApp() {
     document.addEventListener("mouseup", onUp)
   }, [])
 
-  if (!mounted) return <div className="flex items-center justify-center h-screen text-muted-foreground">加载中...</div>
+  if (!mounted) return (
+    <div className="flex items-center justify-center h-screen text-muted-foreground">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        <p>加载中...</p>
+      </div>
+    </div>
+  )
 
   const filteredCodes = funcodes.filter(fc => {
     if (filterGroup && fc.group !== filterGroup) return false
@@ -84,7 +91,12 @@ export default function ClientApp() {
           <FuncCodeTable filteredCodes={filteredCodes} />
           <RightPanel />
         </div>
-        {monitorPanelVisible && <div className="h-0.5 bg-border cursor-ns-resize flex-shrink-0 hover:h-1.5 hover:bg-primary/50 transition-all" onMouseDown={startResize} />}
+        {monitorPanelVisible && (
+          <div 
+            className="h-1 bg-border cursor-ns-resize flex-shrink-0 hover:h-1.5 hover:bg-primary/50 smooth-transition" 
+            onMouseDown={startResize} 
+          />
+        )}
         <BottomPanel />
       </main>
       <StatusBar />
