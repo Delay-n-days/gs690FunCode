@@ -43,7 +43,10 @@ export function displayToRaw(fc: FuncCode, s: string): number {
 /** 获取显示值（字符串形式） */
 const displayVal = (fc: FuncCode, key: 'upper_limit' | 'lower_limit' | 'factory_value'): string => {
   if (fc.display_format_u16 === '1') return fc[key]
-  return (parseFloat(fc[key]) * (parseFloat(fc.factor) || 1)).toString()
+  const factor = parseFloat(fc.factor) || 1
+  const v = parseFloat(fc[key]) * factor
+  const d = factor === 1 ? 0 : factor === 0.1 ? 1 : factor === 0.01 ? 2 : factor === 0.001 ? 3 : 4
+  return v.toFixed(d)
 }
 /** 获取显示值（数值形式） */
 const displayNum = (fc: FuncCode, key: 'upper_limit' | 'lower_limit'): number => {
