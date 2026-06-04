@@ -21,15 +21,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'bun'
+
+      - name: Install Bun
+        run: npm install -g bun
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -37,8 +36,17 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Verify build output
+        run: |
+          echo "Checking out/ directory..."
+          ls -la out/
+          echo "Checking index.html..."
+          cat out/index.html | head -20
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
+        with:
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
