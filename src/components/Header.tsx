@@ -1,14 +1,16 @@
 "use client"
 import { useRef, useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { useConnectionStore, useFuncodeStore, useUIStore } from "@/store"
 import { importExcel } from "@/lib/api"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Upload, PanelRightOpen, PanelRightClose, ChevronDown, ChevronUp, Sun, Moon, Wifi, WifiOff, Terminal, Settings, HelpCircle } from "lucide-react"
+import { Upload, PanelRightOpen, PanelRightClose, ChevronDown, ChevronUp, Sun, Moon, Wifi, WifiOff, Terminal, Edit } from "lucide-react"
 
 export default function Header({ theme }: { theme: { themeIcon: string; toggleTheme: () => void } }) {
+  const router = useRouter()
   const ref = useRef<HTMLInputElement>(null)
   const connected = useConnectionStore(s => s.connected)
   const disconnect = useConnectionStore(s => s.disconnect)
@@ -64,6 +66,9 @@ export default function Header({ theme }: { theme: { themeIcon: string; toggleTh
         </label>
         <Button variant="ghost" size="sm" onClick={theme.toggleTheme} className="w-8 h-8 p-0">
           {mounted && theme.themeIcon === "☀" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => router.push("/editor")} className="gap-1.5">
+          <Edit className="w-4 h-4" /> 编辑
         </Button>
         <Button variant="default" size="sm" onClick={() => connected ? disconnect() : setDialogVisible(true)} className="gap-1.5">
           {connected ? "断开" : "连接"}
