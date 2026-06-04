@@ -504,12 +504,12 @@ export default function FuncCodeEditor() {
           resetForm()
         }
       }}>
-        <DialogContent className="w-[600px] max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-[900px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingIndex >= 0 ? "编辑功能码" : "新增功能码"}</DialogTitle>
           </DialogHeader>
           
-          <div className="grid grid-cols-2 gap-4 py-4">
+          <div className="grid grid-cols-3 gap-4 py-4">
             {/* 功能码 */}
             <div className="flex flex-col gap-2">
               <Label>功能码 *</Label>
@@ -517,6 +517,7 @@ export default function FuncCodeEditor() {
                 value={formData.function_code || ""}
                 onChange={e => setFormData({ ...formData, function_code: e.target.value })}
                 placeholder="如 A0.00"
+                disabled={mode === "normal"}
                 className={formErrors.function_code ? "border-destructive" : ""}
               />
               {formErrors.function_code && (
@@ -529,7 +530,7 @@ export default function FuncCodeEditor() {
             {/* 分组 */}
             <div className="flex flex-col gap-2">
               <Label>分组 *</Label>
-              <Select value={formData.group || ""} onValueChange={v => setFormData({ ...formData, group: v ?? "" })}>
+              <Select value={formData.group || ""} onValueChange={v => setFormData({ ...formData, group: v ?? "" })} disabled={mode === "normal"}>
                 <SelectTrigger className={formErrors.group ? "border-destructive" : ""}>
                   <SelectValue placeholder="选择分组" />
                 </SelectTrigger>
@@ -553,6 +554,7 @@ export default function FuncCodeEditor() {
                 value={formData.address_str || ""}
                 onChange={e => setFormData({ ...formData, address_str: e.target.value })}
                 placeholder="如 0"
+                disabled={mode === "normal"}
                 className={formErrors.address_str ? "border-destructive" : ""}
               />
               {formErrors.address_str && (
@@ -569,6 +571,7 @@ export default function FuncCodeEditor() {
                 value={formData.comment || ""}
                 onChange={e => setFormData({ ...formData, comment: e.target.value })}
                 placeholder="功能描述"
+                disabled={mode === "normal"}
                 className={formErrors.comment ? "border-destructive" : ""}
               />
               {formErrors.comment && (
@@ -578,7 +581,7 @@ export default function FuncCodeEditor() {
               )}
             </div>
             
-            {/* 出厂值 */}
+            {/* 出厂值 - 普通模式下可编辑 */}
             <div className="flex flex-col gap-2">
               <Label>出厂值 *</Label>
               <Input
@@ -601,13 +604,14 @@ export default function FuncCodeEditor() {
                 value={formData.unit || ""}
                 onChange={e => setFormData({ ...formData, unit: e.target.value })}
                 placeholder="如 A, V, ℃"
+                disabled={mode === "normal"}
               />
             </div>
             
             {/* 读写属性 */}
             <div className="flex flex-col gap-2">
               <Label>读写属性</Label>
-              <Select value={formData.wr_attribute || "△"} onValueChange={v => setFormData({ ...formData, wr_attribute: v ?? "△" })}>
+              <Select value={formData.wr_attribute || "△"} onValueChange={v => setFormData({ ...formData, wr_attribute: v ?? "△" })} disabled={mode === "normal"}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -626,6 +630,7 @@ export default function FuncCodeEditor() {
                 value={formData.factor || ""}
                 onChange={e => setFormData({ ...formData, factor: e.target.value })}
                 placeholder="如 1, 0.1, 0.01"
+                disabled={mode === "normal"}
               />
             </div>
             
@@ -636,6 +641,7 @@ export default function FuncCodeEditor() {
                 value={formData.lower_limit || ""}
                 onChange={e => setFormData({ ...formData, lower_limit: e.target.value })}
                 placeholder="最小值"
+                disabled={mode === "normal"}
               />
             </div>
             
@@ -646,13 +652,14 @@ export default function FuncCodeEditor() {
                 value={formData.upper_limit || ""}
                 onChange={e => setFormData({ ...formData, upper_limit: e.target.value })}
                 placeholder="最大值"
+                disabled={mode === "normal"}
               />
             </div>
             
             {/* 显示格式 */}
             <div className="flex flex-col gap-2">
               <Label>显示格式</Label>
-              <Select value={formData.display_format_u16 || "0"} onValueChange={(v: string | null) => setFormData({ ...formData, display_format_u16: v ?? "0" })}>
+              <Select value={formData.display_format_u16 || "0"} onValueChange={(v: string | null) => setFormData({ ...formData, display_format_u16: v ?? "0" })} disabled={mode === "normal"}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -667,7 +674,7 @@ export default function FuncCodeEditor() {
             {/* 数据宽度 */}
             <div className="flex flex-col gap-2">
               <Label>数据宽度</Label>
-              <Select value={formData.data_width || "4"} onValueChange={(v: string | null) => setFormData({ ...formData, data_width: v ?? "4" })}>
+              <Select value={formData.data_width || "4"} onValueChange={(v: string | null) => setFormData({ ...formData, data_width: v ?? "4" })} disabled={mode === "normal"}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -679,14 +686,15 @@ export default function FuncCodeEditor() {
               </Select>
             </div>
             
-            {/* 选项说明（跨两列） */}
-            <div className="flex flex-col gap-2 col-span-2">
+            {/* 选项说明（跨三列） */}
+            <div className="flex flex-col gap-2 col-span-3">
               <Label>选项说明</Label>
               <textarea
                 value={formData.function_code_option || ""}
                 onChange={e => setFormData({ ...formData, function_code_option: e.target.value })}
                 placeholder="每行一个选项，格式: 值：说明"
-                className="min-h-[80px] px-3 py-2 text-sm border border-border rounded-md resize-none input-focus"
+                disabled={mode === "normal"}
+                className="min-h-[80px] px-3 py-2 text-sm border border-border rounded-md resize-none input-focus disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
           </div>
