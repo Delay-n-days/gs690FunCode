@@ -48,13 +48,21 @@ jobs:
           restore-keys: build-tauri-${{ runner.os }}-
 
       - name: Cache node_modules
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
+        id: cache-node
         with:
           path: node_modules
           key: node-${{ runner.os }}-${{ hashFiles('bun.lock') }}
 
       - name: Install frontend dependencies
         run: bun install --frozen-lockfile
+
+      - name: Save node_modules cache
+        if: always() && steps.cache-node.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: node_modules
+          key: node-${{ runner.os }}-${{ hashFiles('bun.lock') }}
 
       - name: Install Tauri CLI
         run: bun add -g @tauri-apps/cli
