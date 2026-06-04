@@ -205,7 +205,13 @@ export default function FuncCodeEditor() {
   const handleAdvancedEdit = useCallback((fc: FuncCode, index: number) => {
     if (mode !== "advanced") return
     setEditingIndex(index)
-    setFormData({ ...fc })
+    // 确保所有值都是字符串类型
+    setFormData({
+      ...fc,
+      display_format_u16: String(fc.display_format_u16 || "0"),
+      data_width: String(fc.data_width || "4"),
+      whether_signed: String(fc.whether_signed || "0"),
+    })
     setFormErrors({})
     setEditDialogOpen(true)
   }, [mode])
