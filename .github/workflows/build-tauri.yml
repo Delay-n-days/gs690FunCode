@@ -87,11 +87,6 @@ jobs:
       - name: Build Tauri app
         run: tauri build
 
-      - name: Check target size
-        if: always()
-        shell: bash
-        run: du -sh src-tauri/target 2>/dev/null || echo "target not found"
-
       - name: Save Next.js build cache
         if: always() && steps.cache-next.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -103,7 +98,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: gs690-funcode-terminal
+          name: gs690-funcode-tauri-windows
           path: src-tauri/target/release/gs690-fun-code.exe
 
       - name: Save Rust cache
