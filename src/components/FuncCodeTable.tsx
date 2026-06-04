@@ -125,8 +125,8 @@ export default function FuncCodeTable({ filteredCodes }: { filteredCodes: FuncCo
 
         {/* 数据表格 */}
         <div className="flex-1 min-h-0 overflow-auto">
-          <Table>
-            <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+          <Table className="border-collapse">
+            <TableHeader className="sticky top-0 bg-background z-20">
               <TableRow className="border-b border-border">
                 <TableHead className="w-8"></TableHead>
                 <TableHead className="w-12">属性</TableHead>
