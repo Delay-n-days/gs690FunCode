@@ -34,8 +34,13 @@ jobs:
           key: test-rust-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: test-rust-${{ runner.os }}-
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
       - name: Run Rust tests
-        run: cargo test --lib
+        run: cargo test
         working-directory: src-tauri
 
   frontend-tests:
