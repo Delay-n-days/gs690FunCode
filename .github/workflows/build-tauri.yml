@@ -40,6 +40,7 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           cache: true
+          cache: true
 
       - name: Restore Rust cache
         uses: actions/cache/restore@v4
