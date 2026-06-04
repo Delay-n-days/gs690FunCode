@@ -152,6 +152,13 @@ jobs:
           path: node_modules
           key: node-${{ runner.os }}-${{ hashFiles('bun.lock') }}
 
+      - name: Cache Next.js build
+        uses: actions/cache/restore@v4
+        id: cache-next
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
       - name: Install Tauri CLI
         run: bun add -g @tauri-apps/cli
 
@@ -172,6 +179,13 @@ jobs:
 
       - name: Build Tauri app
         run: tauri build
+
+      - name: Save Next.js build cache
+        if: always() && steps.cache-next.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('bun.lock') }}
         working-directory: .
 
       # === 上传产物 ===
