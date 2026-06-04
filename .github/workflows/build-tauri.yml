@@ -51,7 +51,7 @@ jobs:
             next-${{ runner.os }}-
 
       - name: Install frontend dependencies
-        run: bun install --frozen-lockfile
+        run: bun install --frozen-lockfile 
 
       - name: Install Tauri CLI
         run: bun add -g @tauri-apps/cli
